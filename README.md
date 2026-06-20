@@ -193,3 +193,52 @@ We run a background web server bound to port `8000`. You can access it directly 
 - **Interactive Map**: View pulsing markers colored by tier (Red = Top 20% risk, Amber = Next 30% risk). Circle sizes scale with their priority score.
 - **Search & Focus**: Search for police stations (e.g. "HAL", "Upparpet") in the sidebar. Clicking any zone list item will pan the map to that marker and open its detailed metrics.
 - **Patrol Dispatch**: Click the "Dispatch Patrol" button inside any marker popup to simulate an officer assignment.
+
+---
+
+## 8. Technical Deep Dive: Preprocessing, Feature Engineering & Priority Scoring
+
+This section explains the exact mathematical formulations and feature engineering choices implemented in this pipeline.
+
+### A. Data Preprocessing & Cleaning (`data_cleaning.py`)
+- **Geographic Bounding Box Filtering**: Any records with latitude/longitude coordinates falling outside the boundaries of metropolitan Bengaluru ($12.80 \le \text{lat} \le 13.30$ and $77.44 \le \text{lon} \le 77.78$) are flagged as noise/anomalies and dropped.
+- **Validation Status Filtering**: Retains only records whose `validation_status` is either empty (null), `"approved"`, or `"created1"`. Any rejected, duplicate, or pending records are filtered out.
+- **UTC to IST Timezone Conversion**: Converts UTC timestamps to Indian Standard Time (Asia/Kolkata timezone) to align time bands with real-world officer shift cycles in Bengaluru.
+- **Physical Vehicle Weights**: Maps vehicle types to numeric blockage values:
+  - **Heavy/Utility Vehicles (1.0)**: private buses, LGVs, maxi-cabs.
+  - **Medium/Standard Vehicles (0.7-0.6)**: passenger cars, vans, goods autos.
+  - **Light/Two-Wheelers (0.2)**: motorcycles, scooters, mopeds.
+
+### B. Feature Engineering (`feature_engineering.py`)
+- **Cyclical Time Encoding**: To preserve chronological proximity (e.g., 23:00 is close to 00:00, Sunday is close to Monday), hours, days of the week, and months are encoded as cyclical sine and cosine functions:
+  $$\text{hour\_sin} = \sin\left(\frac{2\pi \times \text{hour}}{24}\right), \quad \text{hour\_cos} = \cos\left(\frac{2\pi \times \text{hour}}{24}\right)$$
+  $$\text{dow\_sin} = \sin\left(\frac{2\pi \times \text{day\_of\_week}}{7}\right), \quad \text{dow\_cos} = \cos\left(\frac{2\pi \times \text{day\_of\_week}}{7}\right)$$
+- **Distance from City Center**: Measures the Euclidean distance of each violation from the center coordinates of Bengaluru ($12.9716, 77.5946$), which is then normalized using a `MinMaxScaler`.
+- **Cyclical Shift Time-Bands**: Mapped from the local hour:
+  - `late_night` (23:00 to 05:00)
+  - `morning_peak` (06:00 to 09:00)
+  - `mid_day` (10:00 to 15:00)
+  - `evening` (16:00 to 19:00)
+  - `night` (20:00 to 22:00)
+- **Record Severity Encoding**: Maps specific violation types to severity indices (e.g., `PARKING IN A MAIN ROAD = 1.0`, `NO PARKING / WRONG PARKING = 0.6`, `PARKING ON FOOTPATH = 0.5`). This is multiplied by the violation count in that specific record (since a single report can log multiple offenses) to construct `combined_severity_norm`.
+
+### C. Congestion Impact Index (CII) Scoring (`cii_scoring.py`)
+CII represents the static vulnerability/blockage profile of a zone. It is computed at the `(cluster_id, time_band)` grain and does not vary week-to-week:
+$$\text{CII Score} = 0.4 \times \text{Junction Proxy} + 0.3 \times \text{Vehicle Blockage} + 0.3 \times \text{Time Demand}$$
+Where:
+- **Junction Proxy**: $1.0$ if the cluster center is near a major junction (prefixed with `"BTP"`), $0.5$ otherwise.
+- **Vehicle Blockage**: The average `vehicle_weight` of all violations historically logged in that zone.
+- **Time Demand**: Mapped demand multiplier corresponding to the shift (e.g. `morning_peak = 1.0`, `late_night = 0.2`).
+
+### D. Hotspot Score Prediction & Bayesian Shrinkage (`final_priority.py`)
+1. **Forecast Volume**: The production pipeline uses the expanding historical average of the series' weekly counts to forecast the next week's predicted count $V_{pred}$.
+2. **Empirical Severity Shrinkage**: Low-volume clusters are regularized to prevent noisy averages from distorting hotspot priority. Each cluster's mean severity index $S_{raw}$ is smoothed toward the global average severity $S_{global} = 0.0128$ using $K = 30$:
+   $$S_{shrunk} = \frac{N \times S_{raw} + 30 \times 0.0128}{N + 30}$$
+   where $N$ is the total historical violations observed in that zone.
+3. **Hotspot Score**: The raw index is computed as:
+   $$\text{Hotspot Score Raw} = V_{pred} \times S_{shrunk}$$
+   This raw score is normalized globally to range from $0.0$ to $1.0$ across all 939 zones, yielding the final `hotspot_score`.
+4. **Final Prioritization**: The final score blends predicted volume/severity (Hotspot) with road blockage vulnerability (CII):
+   $$\text{Final Priority Score} = \text{Hotspot Score} \times \text{CII Score}$$
+   This product ensures that a zone is flagged as high priority (**Red Tier**) only if it has both high expected violation volume/severity *and* occurs in a highly vulnerable location (e.g., heavy vehicles blocking a major junction during peak hours).
+
