@@ -1,0 +1,47 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Environments
+.venv/
+venv/
+env/
+ENV/
+ActiveState.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDE / Editor configuration
+.vscode/
+.idea/
+.gemini/
+.system_generated/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Data files (Capped to exclude huge datasets and temporary extracts)
+data/
+!data/
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+*.csv
+!sample_clustered_violations.csv
+
+# Output models and logs
+models/
+outputs/
+*.log
+*.txt
+!requirements.txt
+!MODEL_DECISION_LOG.md

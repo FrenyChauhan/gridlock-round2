@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bengaluru Traffic Gridlock Patrol Optimizer</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet.js Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <style>
+        :root {
+            --bg-dark: #07050f;
+            --bg-card: rgba(18, 14, 36, 0.7);
+            --border-glow: rgba(123, 97, 255, 0.15);
+            --accent-red: #ff3b30;
+            --accent-red-glow: rgba(255, 59, 48, 0.4);
+            --accent-amber: #ff9f0a;
+            --accent-amber-glow: rgba(255, 159, 10, 0.4);
+            --accent-cyan: #00e5ff;
+            --accent-purple: #7b61ff;
+            --text-primary: #f5f4f9;
+            --text-secondary: #9ea0ab;
+            --font-main: 'Outfit', sans-serif;
+            --font-mono: 'Space Grotesk', sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            font-family: var(--font-main);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(180deg, rgba(11, 8, 25, 0.9) 0%, rgba(7, 5, 15, 0) 100%);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 1.25rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: var(--accent-cyan);
+            box-shadow: 0 0 10px var(--accent-cyan);
+            animation: pulse 2s infinite;
+        }
+
+        header h1 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(90deg, #fff 0%, #a29bfe 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-family: var(--font-mono);
+        }
+
+        header p {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .badge {
+            background: rgba(123, 97, 255, 0.15);
+            border: 1px solid rgba(123, 97, 255, 0.3);
+            color: #d1c7ff;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            font-family: var(--font-mono);
+        }
+
+        /* Dashboard Main Layout */
+        .dashboard-container {
+            flex: 1;
+            display: flex;
+            position: relative;
+            height: calc(100vh - 75px);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 380px;
+            background-color: rgba(9, 7, 20, 0.85);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem;
+            gap: 1.5rem;
+            z-index: 1000;
+            backdrop-filter: blur(15px);
+            overflow-y: auto;
+        }
+
+        /* Scrollbar styling */
+        .sidebar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .sidebar::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+        }
+        .sidebar::-webkit-scrollbar-thumb {
+            background: rgba(123, 97, 255, 0.3);
+            border-radius: 4px;
+        }
+
+        /* Group Box / Glassmorphic Card */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-glow);
+            border-radius: 12px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .card-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Timeband Pill Selector */
+        .timeband-selector {
+            display: flex;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 4px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .timeband-btn {
+            flex: 1;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 0.5rem 0.25rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            text-align: center;
+        }
+
+        .timeband-btn.active {
+            background-color: var(--accent-purple);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(123, 97, 255, 0.3);
+        }
+
+        /* Stats grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+        }
+
+        .stat-box {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            transition: border-color 0.3s;
+        }
+
+        .stat-box:hover {
+            border-color: rgba(123, 97, 255, 0.3);
+        }
+
+        .stat-value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Search */
+        .search-box {
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 0.6rem 1rem;
+            color: #fff;
+            font-family: var(--font-main);
+            font-size: 0.85rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .search-input:focus {
+            border-color: var(--accent-purple);
+        }
+
+        /* List container */
+        .hotspot-list-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .hotspot-list-container::-webkit-scrollbar {
+            width: 4px;
+        }
+        .hotspot-list-container::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        .hotspot-item {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .hotspot-item:hover {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(123, 97, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .hotspot-item-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+            max-width: 70%;
+        }
+
+        .hotspot-item-station {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #fff;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .hotspot-item-details {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .hotspot-item-badge {
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            font-family: var(--font-mono);
+            text-align: center;
+        }
+
+        .hotspot-item-badge.Red {
+            background: rgba(255, 59, 48, 0.15);
+            border: 1px solid rgba(255, 59, 48, 0.4);
+            color: #ff6961;
+            box-shadow: 0 0 10px rgba(255, 59, 48, 0.1);
+        }
+
+        .hotspot-item-badge.Amber {
+            background: rgba(255, 159, 10, 0.15);
+            border: 1px solid rgba(255, 159, 10, 0.4);
+            color: #ffd60a;
+            box-shadow: 0 0 10px rgba(255, 159, 10, 0.1);
+        }
+
+        /* Map Container */
+        .map-container {
+            flex: 1;
+            height: 100%;
+            position: relative;
+            background-color: #12101e;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Map custom popups */
+        .leaflet-popup-content-wrapper {
+            background: rgba(13, 10, 28, 0.95) !important;
+            border: 1px solid rgba(123, 97, 255, 0.3) !important;
+            color: var(--text-primary) !important;
+            border-radius: 12px !important;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
+            backdrop-filter: blur(10px) !important;
+        }
+
+        .leaflet-popup-tip {
+            background: rgba(13, 10, 28, 0.95) !important;
+            border-left: 1px solid rgba(123, 97, 255, 0.3) !important;
+            border-bottom: 1px solid rgba(123, 97, 255, 0.3) !important;
+        }
+
+        .popup-header {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 0.5rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .popup-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #fff;
+            font-family: var(--font-mono);
+        }
+
+        .popup-badge {
+            font-size: 0.65rem;
+            font-weight: 800;
+            padding: 1px 6px;
+            border-radius: 3px;
+            text-transform: uppercase;
+        }
+
+        .popup-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .popup-label {
+            color: var(--text-secondary);
+        }
+
+        .popup-value {
+            font-weight: 600;
+            color: #fff;
+            text-align: right;
+        }
+
+        .popup-dispatch-btn {
+            width: 100%;
+            background: linear-gradient(90deg, #7b61ff 0%, #5923ff 100%);
+            border: none;
+            color: #fff;
+            padding: 0.4rem;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-family: var(--font-mono);
+        }
+
+        .popup-dispatch-btn:hover {
+            opacity: 0.9;
+        }
+
+        /* Legend */
+        .map-legend {
+            position: absolute;
+            bottom: 2rem;
+            right: 2rem;
+            background: rgba(13, 10, 28, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            z-index: 1000;
+            backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+
+        .legend-title {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            margin-bottom: 0.2rem;
+            font-family: var(--font-mono);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(0, 229, 255, 0.5);
+            }
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 8px rgba(0, 229, 255, 0);
+            }
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(0, 229, 255, 0);
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .dashboard-container {
+                flex-direction: column;
+            }
+            .sidebar {
+                width: 100%;
+                height: 40%;
+                overflow-y: auto;
+            }
+            .map-container {
+                height: 60%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-container">
+            <div class="logo-indicator"></div>
+            <div>
+                <h1>GRIDLOCK PATROL OPTIMIZER</h1>
+                <p>Tomorrow's Traffic Hotspot Predictor & Dispatch System</p>
+            </div>
+        </div>
+        <div class="badge">PROD PATH: HIST-MEAN MODEL</div>
+    </header>
+
+    <div class="dashboard-container">
+        
+        <!-- Sidebar Controls -->
+        <div class="sidebar">
+            
+            <!-- Timeband selector -->
+            <div class="card">
+                <div class="card-title">Select Shift Time-Band <span style="color: var(--accent-cyan)">● Live</span></div>
+                <div class="timeband-selector">
+                    <button class="timeband-btn active" onclick="switchTimeBand('morning_peak')">Morning Peak</button>
+                    <button class="timeband-btn" onclick="switchTimeBand('mid_day')">Mid Day</button>
+                    <button class="timeband-btn" onclick="switchTimeBand('late_night')">Late Night</button>
+                </div>
+            </div>
+            
+            <!-- Statistics Card -->
+            <div class="card">
+                <div class="card-title">Shift Risk Metrics</div>
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <span class="stat-value" id="stat-count">0</span>
+                        <span class="stat-label">Active Hotspots</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-value" id="stat-volume">0.0</span>
+                        <span class="stat-label">Max Violations/Wk</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-value" id="stat-cii">0.00</span>
+                        <span class="stat-label">Mean CII Impact</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-value" id="stat-priority" style="color: var(--accent-red)">0.00</span>
+                        <span class="stat-label">Avg Priority</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Search & Filter Card -->
+            <div class="card" style="flex: 1; min-height: 300px; display: flex; flex-direction: column;">
+                <div class="card-title">Priority Rank List</div>
+                <div class="search-box">
+                    <input type="text" class="search-input" id="search-input" placeholder="Search Station..." oninput="handleSearch()">
+                </div>
+                <div class="hotspot-list-container" id="hotspot-list">
+                    <!-- Dynamic list items -->
+                </div>
+            </div>
+            
+        </div>
+        
+        <!-- Map Panel -->
+        <div class="map-container">
+            <div id="map"></div>
+            
+            <!-- Legend overlay -->
+            <div class="map-legend">
+                <div class="legend-title">Patrol Priority Tiers</div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: var(--accent-red); box-shadow: 0 0 8px var(--accent-red);"></div>
+                    <span>Red Tier (Top 20% Risk)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: var(--accent-amber); box-shadow: 0 0 8px var(--accent-amber);"></div>
+                    <span>Amber Tier (Next 30% Risk)</span>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+
+    <!-- Embedded Data -->
+    <script>
+        const HEATMAP_DATA = {"late_night": [{"lat": 12.97263, "lon": 77.57758, "station": "Upparpet", "score": 0.3467, "tier": "Red", "volume": 723.5, "cii": 0.609, "cluster": 2}, {"lat": 12.93352, "lon": 77.69065, "station": "HAL Old Airport", "score": 0.3393, "tier": "Red", "volume": 142.3, "cii": 0.339, "cluster": 10}, {"lat": 12.95022, "lon": 77.69969, "station": "HAL Old Airport", "score": 0.2286, "tier": "Red", "volume": 35.0, "cii": 0.445, "cluster": 62}, {"lat": 13.18547, "lon": 77.68, "station": "Chikkajala", "score": 0.1856, "tier": "Red", "volume": 90.9, "cii": 0.491, "cluster": 23}, {"lat": 13.00843, "lon": 77.69538, "station": "K.R. Pura", "score": 0.1522, "tier": "Red", "volume": 86.9, "cii": 0.395, "cluster": 6}, {"lat": 12.99625, "lon": 77.66852, "station": "Mahadevapura", "score": 0.1393, "tier": "Red", "volume": 27.4, "cii": 0.427, "cluster": 109}, {"lat": 13.00037, "lon": 77.67697, "station": "Mahadevapura", "score": 0.122, "tier": "Red", "volume": 40.1, "cii": 0.439, "cluster": 97}, {"lat": 12.98762, "lon": 77.73461, "station": "Mahadevapura", "score": 0.1071, "tier": "Red", "volume": 34.8, "cii": 0.322, "cluster": 58}, {"lat": 12.93926, "lon": 77.69645, "station": "HAL Old Airport", "score": 0.1047, "tier": "Red", "volume": 21.8, "cii": 0.445, "cluster": 15}, {"lat": 12.97915, "lon": 77.69512, "station": "Mahadevapura", "score": 0.0601, "tier": "Red", "volume": 12.6, "cii": 0.468, "cluster": 94}, {"lat": 12.93196, "lon": 77.6959, "station": "HAL Old Airport", "score": 0.0576, "tier": "Red", "volume": 9.2, "cii": 0.526, "cluster": 274}, {"lat": 13.19124, "lon": 77.64622, "station": "Chikkajala", "score": 0.0571, "tier": "Red", "volume": 17.1, "cii": 0.477, "cluster": 77}, {"lat": 12.93634, "lon": 77.69242, "station": "HAL Old Airport", "score": 0.0521, "tier": "Red", "volume": 24.9, "cii": 0.431, "cluster": 141}, {"lat": 12.97705, "lon": 77.57078, "station": "Chamarajpet", "score": 0.0477, "tier": "Red", "volume": 23.7, "cii": 0.615, "cluster": 57}, {"lat": 13.00346, "lon": 77.7235, "station": "K.R. Pura", "score": 0.0435, "tier": "Red", "volume": 8.9, "cii": 0.332, "cluster": 174}, {"lat": 12.91692, "lon": 77.59541, "station": "Jayanagara", "score": 0.0416, "tier": "Red", "volume": 8.7, "cii": 0.555, "cluster": 319}, {"lat": 12.95313, "lon": 77.54216, "station": "Byatarayanapura", "score": 0.0401, "tier": "Red", "volume": 23.4, "cii": 0.585, "cluster": 74}, {"lat": 12.97141, "lon": 77.71199, "station": "HAL Old Airport", "score": 0.04, "tier": "Red", "volume": 17.1, "cii": 0.481, "cluster": 162}, {"lat": 12.9579, "lon": 77.7016, "station": "HAL Old Airport", "score": 0.0398, "tier": "Red", "volume": 23.5, "cii": 0.398, "cluster": 25}, {"lat": 13.03393, "lon": 77.5578, "station": "Yeshwanthpura", "score": 0.0363, "tier": "Red", "volume": 11.1, "cii": 0.384, "cluster": 122}, {"lat": 12.94379, "lon": 77.69767, "station": "HAL Old Airport", "score": 0.0349, "tier": "Red", "volume": 10.8, "cii": 0.476, "cluster": 201}, {"lat": 12.92977, "lon": 77.69485, "station": "Bellandur", "score": 0.0337, "tier": "Red", "volume": 9.3, "cii": 0.526, "cluster": 280}, {"lat": 12.96614, "lon": 77.53766, "station": "Vijayanagara", "score": 0.0317, "tier": "Red", "volume": 49.6, "cii": 0.557, "cluster": 28}, {"lat": 12.93065, "lon": 77.60983, "station": "Mico Layout", "score": 0.0309, "tier": "Red", "volume": 5.6, "cii": 0.676, "cluster": 114}, {"lat": 12.9514, "lon": 77.7175, "station": "Whitefield", "score": 0.0305, "tier": "Red", "volume": 10.2, "cii": 0.399, "cluster": 182}, {"lat": 12.97438, "lon": 77.54569, "station": "Vijayanagara", "score": 0.0291, "tier": "Red", "volume": 70.2, "cii": 0.533, "cluster": 60}, {"lat": 13.00801, "lon": 77.52674, "station": "Rajajinagar", "score": 0.0274, "tier": "Red", "volume": 6.2, "cii": 0.477, "cluster": 233}, {"lat": 12.98875, "lon": 77.55019, "station": "Vijayanagara", "score": 0.0274, "tier": "Red", "volume": 10.2, "cii": 0.654, "cluster": 128}, {"lat": 12.95573, "lon": 77.5461, "station": "Byatarayanapura", "score": 0.0235, "tier": "Red", "volume": 5.0, "cii": 0.647, "cluster": 188}, {"lat": 13.0057, "lon": 77.6858, "station": "K.R. Pura", "score": 0.0222, "tier": "Red", "volume": 16.8, "cii": 0.393, "cluster": 14}, {"lat": 12.96442, "lon": 77.55479, "station": "Magadi Road", "score": 0.0212, "tier": "Red", "volume": 11.7, "cii": 0.445, "cluster": 76}, {"lat": 12.97303, "lon": 77.61586, "station": "Halasur", "score": 0.021, "tier": "Red", "volume": 34.9, "cii": 0.442, "cluster": 26}, {"lat": 13.05085, "lon": 77.55277, "station": "Jalahalli", "score": 0.0203, "tier": "Red", "volume": 5.4, "cii": 0.394, "cluster": 192}, {"lat": 12.98356, "lon": 77.60355, "station": "Shivajinagar", "score": 0.0203, "tier": "Red", "volume": 53.6, "cii": 0.583, "cluster": 32}, {"lat": 13.0353, "lon": 77.58902, "station": "Hebbala", "score": 0.0186, "tier": "Red", "volume": 57.7, "cii": 0.366, "cluster": 43}, {"lat": 12.97364, "lon": 77.55109, "station": "Magadi Road", "score": 0.0183, "tier": "Red", "volume": 12.7, "cii": 0.542, "cluster": 64}, {"lat": 12.92705, "lon": 77.69483, "station": "Bellandur", "score": 0.0182, "tier": "Red", "volume": 8.1, "cii": 0.445, "cluster": 265}, {"lat": 12.91708, "lon": 77.5968, "station": "Jayanagara", "score": 0.0175, "tier": "Red", "volume": 5.9, "cii": 0.595, "cluster": 181}, {"lat": 12.99921, "lon": 77.54997, "station": "Rajajinagar", "score": 0.0173, "tier": "Red", "volume": 82.1, "cii": 0.572, "cluster": 22}, {"lat": 12.97746, "lon": 77.59106, "station": "Cubbon Park", "score": 0.0169, "tier": "Red", "volume": 9.2, "cii": 0.545, "cluster": 150}, {"lat": 13.03056, "lon": 77.53658, "station": "Yeshwanthpura", "score": 0.0164, "tier": "Red", "volume": 9.7, "cii": 0.432, "cluster": 131}, {"lat": 13.0471, "lon": 77.50101, "station": "Peenya", "score": 0.0161, "tier": "Red", "volume": 22.8, "cii": 0.321, "cluster": 108}, {"lat": 13.05002, "lon": 77.59312, "station": "Kodigehalli", "score": 0.0156, "tier": "Red", "volume": 14.8, "cii": 0.411, "cluster": 154}, {"lat": 13.02891, "lon": 77.53976, "station": "Yeshwanthpura", "score": 0.0156, "tier": "Red", "volume": 5.7, "cii": 0.437, "cluster": 220}, {"lat": 12.99553, "lon": 77.69578, "station": "Mahadevapura", "score": 0.0154, "tier": "Red", "volume": 5.4, "cii": 0.432, "cluster": 19}, {"lat": 12.95952, "lon": 77.64518, "station": "Jeevanbheemanagar", "score": 0.0153, "tier": "Red", "volume": 18.1, "cii": 0.524, "cluster": 44}, {"lat": 12.93567, "lon": 77.60778, "station": "Mico Layout", "score": 0.0152, "tier": "Red", "volume": 3.0, "cii": 0.585, "cluster": 318}, {"lat": 13.01776, "lon": 77.53156, "station": "Rajajinagar", "score": 0.0151, "tier": "Red", "volume": 10.4, "cii": 0.468, "cluster": 61}, {"lat": 12.93674, "lon": 77.60168, "station": "Mico Layout", "score": 0.0147, "tier": "Red", "volume": 3.3, "cii": 0.627, "cluster": 46}, {"lat": 12.95949, "lon": 77.57709, "station": "City Market", "score": 0.0138, "tier": "Red", "volume": 22.1, "cii": 0.609, "cluster": 35}, {"lat": 13.04006, "lon": 77.5186, "station": "Peenya", "score": 0.0132, "tier": "Red", "volume": 4.7, "cii": 0.424, "cluster": 216}, {"lat": 12.99843, "lon": 77.54213, "station": "Vijayanagara", "score": 0.0131, "tier": "Red", "volume": 14.4, "cii": 0.616, "cluster": 5}, {"lat": 12.92624, "lon": 77.60888, "station": "Mico Layout", "score": 0.0131, "tier": "Red", "volume": 2.8, "cii": 0.531, "cluster": 65}, {"lat": 12.95727, "lon": 77.5188, "station": "Byatarayanapura", "score": 0.0117, "tier": "Red", "volume": 5.2, "cii": 0.422, "cluster": 1}, {"lat": 13.00292, "lon": 77.55339, "station": "Malleshwaram", "score": 0.0109, "tier": "Amber", "volume": 8.1, "cii": 0.612, "cluster": 238}, {"lat": 13.01529, "lon": 77.55514, "station": "Malleshwaram", "score": 0.0107, "tier": "Amber", "volume": 3.6, "cii": 0.445, "cluster": 228}, {"lat": 12.92521, "lon": 77.61886, "station": "Madiwala", "score": 0.0104, "tier": "Amber", "volume": 13.8, "cii": 0.586, "cluster": 0}, {"lat": 13.0188, "lon": 77.55792, "station": "Yeshwanthpura", "score": 0.0102, "tier": "Amber", "volume": 9.1, "cii": 0.393, "cluster": 153}, {"lat": 12.9745, "lon": 77.71094, "station": "Mahadevapura", "score": 0.0101, "tier": "Amber", "volume": 10.0, "cii": 0.536, "cluster": 271}, {"lat": 12.97067, "lon": 77.64651, "station": "Jeevanbheemanagar", "score": 0.0099, "tier": "Amber", "volume": 5.3, "cii": 0.45, "cluster": 237}, {"lat": 12.97686, "lon": 77.58904, "station": "Cubbon Park", "score": 0.0099, "tier": "Amber", "volume": 9.1, "cii": 0.587, "cluster": 151}, {"lat": 12.95969, "lon": 77.64911, "station": "Jeevanbheemanagar", "score": 0.0097, "tier": "Amber", "volume": 7.8, "cii": 0.415, "cluster": 70}, {"lat": 12.93574, "lon": 77.61601, "station": "Adugodi", "score": 0.0095, "tier": "Amber", "volume": 8.6, "cii": 0.542, "cluster": 88}, {"lat": 12.92006, "lon": 77.62102, "station": "Madiwala", "score": 0.0094, "tier": "Amber", "volume": 2.4, "cii": 0.685, "cluster": 148}, {"lat": 12.96859, "lon": 77.64972, "station": "Jeevanbheemanagar", "score": 0.0093, "tier": "Amber", "volume": 4.4, "cii": 0.451, "cluster": 302}, {"lat": 12.99265, "lon": 77.58896, "station": "High ground", "score": 0.0091, "tier": "Amber", "volume": 80.1, "cii": 0.493, "cluster": 17}, {"lat": 12.91128, "lon": 77.57311, "station": "Jayanagara", "score": 0.009, "tier": "Amber", "volume": 4.8, "cii": 0.601, "cluster": 161}, {"lat": 12.9802, "lon": 77.5932, "station": "Cubbon Park", "score": 0.009, "tier": "Amber", "volume": 4.7, "cii": 0.661, "cluster": 149}, {"lat": 12.97826, "lon": 77.62866, "station": "Halasur", "score": 0.0089, "tier": "Amber", "volume": 3.6, "cii": 0.399, "cluster": 68}, {"lat": 12.96469, "lon": 77.71777, "station": "HAL Old Airport", "score": 0.0088, "tier": "Amber", "volume": 44.8, "cii": 0.478, "cluster": 163}, {"lat": 12.9441, "lon": 77.57111, "station": "Basavanagudi", "score": 0.0088, "tier": "Amber", "volume": 23.1, "cii": 0.566, "cluster": 91}, {"lat": 12.96686, "lon": 77.65821, "station": "Jeevanbheemanagar", "score": 0.0086, "tier": "Amber", "volume": 6.3, "cii": 0.467, "cluster": 205}, {"lat": 12.92753, "lon": 77.58596, "station": "Jayanagara", "score": 0.0086, "tier": "Amber", "volume": 4.0, "cii": 0.576, "cluster": 33}, {"lat": 13.01061, "lon": 77.55387, "station": "Malleshwaram", "score": 0.0086, "tier": "Amber", "volume": 80.9, "cii": 0.522, "cluster": 31}, {"lat": 13.12189, "lon": 77.6309, "station": "Chikkajala", "score": 0.0086, "tier": "Amber", "volume": 3.9, "cii": 0.504, "cluster": 251}, {"lat": 12.97571, "lon": 77.55985, "station": "Magadi Road", "score": 0.0086, "tier": "Amber", "volume": 23.4, "cii": 0.424, "cluster": 78}, {"lat": 12.96581, "lon": 77.58183, "station": "Halasuru Gate", "score": 0.0085, "tier": "Amber", "volume": 12.0, "cii": 0.575, "cluster": 315}, {"lat": 12.81849, "lon": 77.68915, "station": "Electronic City", "score": 0.0084, "tier": "Amber", "volume": 6.4, "cii": 0.348, "cluster": 260}, {"lat": 12.92743, "lon": 77.67979, "station": "Bellandur", "score": 0.0083, "tier": "Amber", "volume": 37.2, "cii": 0.499, "cluster": 21}, {"lat": 12.93644, "lon": 77.60619, "station": "Mico Layout", "score": 0.0082, "tier": "Amber", "volume": 2.9, "cii": 0.624, "cluster": 308}, {"lat": 12.93175, "lon": 77.58377, "station": "Jayanagara", "score": 0.0081, "tier": "Amber", "volume": 6.8, "cii": 0.544, "cluster": 75}, {"lat": 12.98125, "lon": 77.59845, "station": "Shivajinagar", "score": 0.0081, "tier": "Amber", "volume": 41.6, "cii": 0.53, "cluster": 111}, {"lat": 13.0475, "lon": 77.57588, "station": "Kodigehalli", "score": 0.008, "tier": "Amber", "volume": 22.5, "cii": 0.353, "cluster": 51}, {"lat": 12.96083, "lon": 77.52825, "station": "Byatarayanapura", "score": 0.0078, "tier": "Amber", "volume": 41.8, "cii": 0.422, "cluster": 140}, {"lat": 13.00124, "lon": 77.59552, "station": "R.T. Nagar", "score": 0.0076, "tier": "Amber", "volume": 11.0, "cii": 0.478, "cluster": 320}, {"lat": 12.96358, "lon": 77.64153, "station": "Jeevanbheemanagar", "score": 0.0076, "tier": "Amber", "volume": 3.9, "cii": 0.581, "cluster": 224}, {"lat": 12.92257, "lon": 77.62265, "station": "Madiwala", "score": 0.0073, "tier": "Amber", "volume": 5.9, "cii": 0.537, "cluster": 290}, {"lat": 13.00787, "lon": 77.54855, "station": "Rajajinagar", "score": 0.0072, "tier": "Amber", "volume": 12.1, "cii": 0.562, "cluster": 116}, {"lat": 12.97396, "lon": 77.62011, "station": "Halasur", "score": 0.007, "tier": "Amber", "volume": 7.0, "cii": 0.456, "cluster": 95}, {"lat": 12.98047, "lon": 77.57889, "station": "High ground", "score": 0.0064, "tier": "Amber", "volume": 6.5, "cii": 0.685, "cluster": 234}, {"lat": 12.99178, "lon": 77.53838, "station": "Vijayanagara", "score": 0.0063, "tier": "Amber", "volume": 8.0, "cii": 0.606, "cluster": 121}, {"lat": 12.98157, "lon": 77.6091, "station": "Shivajinagar", "score": 0.0062, "tier": "Amber", "volume": 35.0, "cii": 0.544, "cluster": 3}, {"lat": 12.97767, "lon": 77.54436, "station": "Vijayanagara", "score": 0.0061, "tier": "Amber", "volume": 12.0, "cii": 0.563, "cluster": 164}, {"lat": 12.90652, "lon": 77.6299, "station": "HSR Layout", "score": 0.0056, "tier": "Amber", "volume": 8.3, "cii": 0.459, "cluster": 72}, {"lat": 13.07105, "lon": 77.58794, "station": "Kodigehalli", "score": 0.0056, "tier": "Amber", "volume": 24.1, "cii": 0.334, "cluster": 53}, {"lat": 12.97996, "lon": 77.55458, "station": "Magadi Road", "score": 0.0055, "tier": "Amber", "volume": 4.2, "cii": 0.602, "cluster": 86}, {"lat": 12.9594, "lon": 77.65576, "station": "Jeevanbheemanagar", "score": 0.0054, "tier": "Amber", "volume": 2.6, "cii": 0.437, "cluster": 295}, {"lat": 12.97011, "lon": 77.60672, "station": "Ashok Nagar", "score": 0.0053, "tier": "Amber", "volume": 24.4, "cii": 0.346, "cluster": 144}, {"lat": 12.9838, "lon": 77.57771, "station": "High ground", "score": 0.0052, "tier": "Amber", "volume": 6.6, "cii": 0.645, "cluster": 49}, {"lat": 13.09703, "lon": 77.59957, "station": "Yelahanka", "score": 0.0052, "tier": "Amber", "volume": 24.0, "cii": 0.403, "cluster": 125}, {"lat": 12.87045, "lon": 77.65446, "station": "Electronic City", "score": 0.0051, "tier": "Amber", "volume": 5.7, "cii": 0.405, "cluster": 130}, {"lat": 13.02755, "lon": 77.54273, "station": "Yeshwanthpura", "score": 0.005, "tier": "Amber", "volume": 4.8, "cii": 0.364, "cluster": 171}, {"lat": 12.95672, "lon": 77.71508, "station": "HAL Old Airport", "score": 0.005, "tier": "Amber", "volume": 5.9, "cii": 0.466, "cluster": 236}, {"lat": 12.9394, "lon": 77.58399, "station": "Wilson Garden", "score": 0.0049, "tier": "Amber", "volume": 32.8, "cii": 0.532, "cluster": 194}, {"lat": 12.98102, "lon": 77.58856, "station": "Cubbon Park", "score": 0.0048, "tier": "Amber", "volume": 5.0, "cii": 0.668, "cluster": 270}, {"lat": 13.04584, "lon": 77.75033, "station": "K.R. Pura", "score": 0.0046, "tier": "Amber", "volume": 2.8, "cii": 0.456, "cluster": 82}, {"lat": 12.96199, "lon": 77.59817, "station": "Ashok Nagar", "score": 0.0046, "tier": "Amber", "volume": 43.7, "cii": 0.525, "cluster": 103}, {"lat": 12.90963, "lon": 77.55004, "station": "K.S. Layout", "score": 0.0045, "tier": "Amber", "volume": 2.6, "cii": 0.446, "cluster": 278}, {"lat": 12.92862, "lon": 77.58095, "station": "Jayanagara", "score": 0.0045, "tier": "Amber", "volume": 12.0, "cii": 0.558, "cluster": 180}, {"lat": 12.92231, "lon": 77.58071, "station": "Jayanagara", "score": 0.0043, "tier": "Amber", "volume": 13.0, "cii": 0.53, "cluster": 311}, {"lat": 12.95797, "lon": 77.58636, "station": "Wilson Garden", "score": 0.0042, "tier": "Amber", "volume": 5.7, "cii": 0.605, "cluster": 85}, {"lat": 12.97162, "lon": 77.5076, "station": "Jnanabharathi", "score": 0.0042, "tier": "Amber", "volume": 2.3, "cii": 0.399, "cluster": 59}, {"lat": 12.84068, "lon": 77.67671, "station": "Electronic City", "score": 0.0042, "tier": "Amber", "volume": 2.5, "cii": 0.36, "cluster": 213}, {"lat": 12.98808, "lon": 77.53758, "station": "Vijayanagara", "score": 0.0041, "tier": "Amber", "volume": 8.7, "cii": 0.604, "cluster": 66}, {"lat": 12.97174, "lon": 77.6581, "station": "Jeevanbheemanagar", "score": 0.0041, "tier": "Amber", "volume": 11.1, "cii": 0.397, "cluster": 157}, {"lat": 13.0068, "lon": 77.57885, "station": "Sadashivanagar", "score": 0.0039, "tier": "Amber", "volume": 4.6, "cii": 0.377, "cluster": 268}, {"lat": 13.07162, "lon": 77.59258, "station": "Hebbala", "score": 0.0039, "tier": "Amber", "volume": 5.6, "cii": 0.365, "cluster": 120}, {"lat": 12.97173, "lon": 77.54684, "station": "Vijayanagara", "score": 0.0038, "tier": "Amber", "volume": 6.4, "cii": 0.557, "cluster": 136}, {"lat": 12.95858, "lon": 77.66825, "station": "HAL Old Airport", "score": 0.0038, "tier": "Amber", "volume": 23.3, "cii": 0.376, "cluster": 272}, {"lat": 13.14422, "lon": 77.61787, "station": "Chikkajala", "score": 0.0037, "tier": "Amber", "volume": 7.5, "cii": 0.387, "cluster": 269}, {"lat": 12.99479, "lon": 77.61029, "station": "Pulikeshinagar(F.Town)", "score": 0.0036, "tier": "Amber", "volume": 18.4, "cii": 0.422, "cluster": 127}, {"lat": 12.87582, "lon": 77.64802, "station": "Hulimavu", "score": 0.0035, "tier": "Amber", "volume": 8.3, "cii": 0.463, "cluster": 93}, {"lat": 12.99956, "lon": 77.56943, "station": "Malleshwaram", "score": 0.0035, "tier": "Amber", "volume": 7.1, "cii": 0.417, "cluster": 47}, {"lat": 13.00714, "lon": 77.62159, "station": "Pulikeshinagar(F.Town)", "score": 0.0034, "tier": "Amber", "volume": 9.3, "cii": 0.446, "cluster": 303}, {"lat": 12.9172, "lon": 77.57352, "station": "Banashankari", "score": 0.0034, "tier": "Amber", "volume": 7.5, "cii": 0.558, "cluster": 80}, {"lat": 12.91739, "lon": 77.57798, "station": "Jayanagara", "score": 0.0033, "tier": "Amber", "volume": 5.0, "cii": 0.644, "cluster": 239}, {"lat": 12.97137, "lon": 77.59754, "station": "Cubbon Park", "score": 0.0032, "tier": "Amber", "volume": 7.7, "cii": 0.631, "cluster": 27}, {"lat": 12.99263, "lon": 77.55815, "station": "Rajajinagar", "score": 0.0032, "tier": "Amber", "volume": 10.2, "cii": 0.56, "cluster": 307}, {"lat": 13.09916, "lon": 77.57705, "station": "Yelahanka", "score": 0.0031, "tier": "Amber", "volume": 10.2, "cii": 0.396, "cluster": 165}, {"lat": 13.06887, "lon": 77.59265, "station": "Kodigehalli", "score": 0.0031, "tier": "Amber", "volume": 6.7, "cii": 0.432, "cluster": 199}, {"lat": 12.96428, "lon": 77.5425, "station": "Vijayanagara", "score": 0.003, "tier": "Amber", "volume": 6.1, "cii": 0.365, "cluster": 262}, {"lat": 12.89521, "lon": 77.67585, "station": "Bellandur", "score": 0.0029, "tier": "Amber", "volume": 11.7, "cii": 0.32, "cluster": 119}], "mid_day": [{"lat": 12.97263, "lon": 77.57758, "station": "Upparpet", "score": 0.2931, "tier": "Red", "volume": 529.0, "cii": 0.608, "cluster": 2}, {"lat": 12.98157, "lon": 77.6091, "station": "Shivajinagar", "score": 0.2377, "tier": "Red", "volume": 351.0, "cii": 0.573, "cluster": 3}, {"lat": 13.18547, "lon": 77.68, "station": "Chikkajala", "score": 0.1928, "tier": "Red", "volume": 51.5, "cii": 0.536, "cluster": 23}, {"lat": 12.99625, "lon": 77.66852, "station": "Mahadevapura", "score": 0.1267, "tier": "Red", "volume": 23.6, "cii": 0.447, "cluster": 109}, {"lat": 12.9855, "lon": 77.74574, "station": "Whitefield", "score": 0.0987, "tier": "Red", "volume": 21.3, "cii": 0.35, "cluster": 301}, {"lat": 12.93352, "lon": 77.69065, "station": "HAL Old Airport", "score": 0.0838, "tier": "Red", "volume": 42.8, "cii": 0.394, "cluster": 10}, {"lat": 12.99553, "lon": 77.69578, "station": "Mahadevapura", "score": 0.0792, "tier": "Red", "volume": 29.2, "cii": 0.451, "cluster": 19}, {"lat": 12.98356, "lon": 77.60355, "station": "Shivajinagar", "score": 0.0774, "tier": "Red", "volume": 70.9, "cii": 0.63, "cluster": 32}, {"lat": 13.00843, "lon": 77.69538, "station": "K.R. Pura", "score": 0.0693, "tier": "Red", "volume": 37.7, "cii": 0.439, "cluster": 6}, {"lat": 13.19124, "lon": 77.64622, "station": "Chikkajala", "score": 0.0603, "tier": "Red", "volume": 14.3, "cii": 0.521, "cluster": 77}, {"lat": 12.90652, "lon": 77.6299, "station": "HSR Layout", "score": 0.0562, "tier": "Red", "volume": 27.1, "cii": 0.419, "cluster": 72}, {"lat": 12.93926, "lon": 77.69645, "station": "HAL Old Airport", "score": 0.056, "tier": "Red", "volume": 15.4, "cii": 0.445, "cluster": 15}, {"lat": 12.95313, "lon": 77.54216, "station": "Byatarayanapura", "score": 0.0435, "tier": "Red", "volume": 19.3, "cii": 0.63, "cluster": 74}, {"lat": 12.98762, "lon": 77.73461, "station": "Mahadevapura", "score": 0.0432, "tier": "Red", "volume": 17.0, "cii": 0.353, "cluster": 58}, {"lat": 13.00801, "lon": 77.52674, "station": "Rajajinagar", "score": 0.0413, "tier": "Red", "volume": 8.3, "cii": 0.491, "cluster": 233}, {"lat": 13.00037, "lon": 77.67697, "station": "Mahadevapura", "score": 0.0411, "tier": "Red", "volume": 10.2, "cii": 0.417, "cluster": 97}, {"lat": 13.01776, "lon": 77.53156, "station": "Rajajinagar", "score": 0.0385, "tier": "Red", "volume": 9.5, "cii": 0.487, "cluster": 61}, {"lat": 12.96364, "lon": 77.73309, "station": "Whitefield", "score": 0.038, "tier": "Red", "volume": 8.8, "cii": 0.443, "cluster": 246}, {"lat": 12.95949, "lon": 77.57709, "station": "City Market", "score": 0.0378, "tier": "Red", "volume": 39.2, "cii": 0.655, "cluster": 35}, {"lat": 12.99921, "lon": 77.54997, "station": "Rajajinagar", "score": 0.0366, "tier": "Red", "volume": 71.1, "cii": 0.604, "cluster": 22}, {"lat": 12.95727, "lon": 77.5188, "station": "Byatarayanapura", "score": 0.031, "tier": "Red", "volume": 14.2, "cii": 0.396, "cluster": 1}, {"lat": 12.97571, "lon": 77.55985, "station": "Magadi Road", "score": 0.0299, "tier": "Red", "volume": 20.6, "cii": 0.495, "cluster": 78}, {"lat": 12.93065, "lon": 77.60983, "station": "Mico Layout", "score": 0.0286, "tier": "Red", "volume": 5.3, "cii": 0.678, "cluster": 114}, {"lat": 13.03393, "lon": 77.5578, "station": "Yeshwanthpura", "score": 0.0273, "tier": "Red", "volume": 7.4, "cii": 0.414, "cluster": 122}, {"lat": 12.96644, "lon": 77.64154, "station": "Jeevanbheemanagar", "score": 0.0263, "tier": "Red", "volume": 10.3, "cii": 0.659, "cluster": 240}, {"lat": 12.98875, "lon": 77.55019, "station": "Vijayanagara", "score": 0.0258, "tier": "Red", "volume": 13.3, "cii": 0.662, "cluster": 128}, {"lat": 12.97067, "lon": 77.64651, "station": "Jeevanbheemanagar", "score": 0.0255, "tier": "Red", "volume": 14.9, "cii": 0.472, "cluster": 237}, {"lat": 12.97915, "lon": 77.69512, "station": "Mahadevapura", "score": 0.0253, "tier": "Red", "volume": 3.9, "cii": 0.526, "cluster": 94}, {"lat": 12.97705, "lon": 77.57078, "station": "Chamarajpet", "score": 0.025, "tier": "Red", "volume": 11.3, "cii": 0.632, "cluster": 57}, {"lat": 12.9514, "lon": 77.7175, "station": "Whitefield", "score": 0.0249, "tier": "Red", "volume": 5.4, "cii": 0.452, "cluster": 182}, {"lat": 12.96614, "lon": 77.53766, "station": "Vijayanagara", "score": 0.024, "tier": "Red", "volume": 52.7, "cii": 0.581, "cluster": 28}, {"lat": 13.12189, "lon": 77.6309, "station": "Chikkajala", "score": 0.0238, "tier": "Red", "volume": 6.5, "cii": 0.416, "cluster": 251}, {"lat": 12.96469, "lon": 77.71777, "station": "HAL Old Airport", "score": 0.0236, "tier": "Red", "volume": 29.0, "cii": 0.489, "cluster": 163}, {"lat": 12.96083, "lon": 77.52825, "station": "Byatarayanapura", "score": 0.0234, "tier": "Red", "volume": 50.1, "cii": 0.423, "cluster": 140}, {"lat": 12.93574, "lon": 77.61601, "station": "Adugodi", "score": 0.0231, "tier": "Red", "volume": 16.9, "cii": 0.584, "cluster": 88}, {"lat": 13.01529, "lon": 77.55514, "station": "Malleshwaram", "score": 0.0228, "tier": "Red", "volume": 6.9, "cii": 0.477, "cluster": 228}, {"lat": 13.05389, "lon": 77.59275, "station": "Kodigehalli", "score": 0.0218, "tier": "Red", "volume": 68.0, "cii": 0.36, "cluster": 39}, {"lat": 12.98808, "lon": 77.53758, "station": "Vijayanagara", "score": 0.0214, "tier": "Red", "volume": 18.2, "cii": 0.627, "cluster": 66}, {"lat": 13.01061, "lon": 77.55387, "station": "Malleshwaram", "score": 0.021, "tier": "Red", "volume": 128.3, "cii": 0.504, "cluster": 31}, {"lat": 12.93196, "lon": 77.6959, "station": "HAL Old Airport", "score": 0.0209, "tier": "Red", "volume": 7.2, "cii": 0.544, "cluster": 274}, {"lat": 12.87045, "lon": 77.65446, "station": "Electronic City", "score": 0.0208, "tier": "Red", "volume": 14.9, "cii": 0.407, "cluster": 130}, {"lat": 12.93043, "lon": 77.68541, "station": "HAL Old Airport", "score": 0.0208, "tier": "Red", "volume": 8.6, "cii": 0.491, "cluster": 132}, {"lat": 13.0057, "lon": 77.6858, "station": "K.R. Pura", "score": 0.0196, "tier": "Red", "volume": 23.9, "cii": 0.428, "cluster": 14}, {"lat": 12.92006, "lon": 77.62102, "station": "Madiwala", "score": 0.0191, "tier": "Red", "volume": 4.3, "cii": 0.654, "cluster": 148}, {"lat": 12.92674, "lon": 77.55081, "station": "Banashankari", "score": 0.0188, "tier": "Red", "volume": 7.3, "cii": 0.573, "cluster": 42}, {"lat": 13.07105, "lon": 77.58794, "station": "Kodigehalli", "score": 0.0187, "tier": "Red", "volume": 128.5, "cii": 0.368, "cluster": 53}, {"lat": 12.9441, "lon": 77.57111, "station": "Basavanagudi", "score": 0.0187, "tier": "Red", "volume": 31.1, "cii": 0.58, "cluster": 91}, {"lat": 12.90963, "lon": 77.55004, "station": "K.S. Layout", "score": 0.0165, "tier": "Red", "volume": 4.8, "cii": 0.416, "cluster": 278}, {"lat": 12.84068, "lon": 77.67671, "station": "Electronic City", "score": 0.0162, "tier": "Red", "volume": 10.3, "cii": 0.37, "cluster": 213}, {"lat": 12.8419, "lon": 77.64582, "station": "Electronic City", "score": 0.016, "tier": "Red", "volume": 61.6, "cii": 0.39, "cluster": 16}, {"lat": 12.97746, "lon": 77.59106, "station": "Cubbon Park", "score": 0.0157, "tier": "Red", "volume": 4.2, "cii": 0.564, "cluster": 150}, {"lat": 12.95022, "lon": 77.69969, "station": "HAL Old Airport", "score": 0.0153, "tier": "Red", "volume": 6.4, "cii": 0.46, "cluster": 62}, {"lat": 12.93556, "lon": 77.61162, "station": "Adugodi", "score": 0.0146, "tier": "Red", "volume": 7.1, "cii": 0.589, "cluster": 299}, {"lat": 12.97364, "lon": 77.55109, "station": "Magadi Road", "score": 0.0143, "tier": "Red", "volume": 48.9, "cii": 0.559, "cluster": 64}, {"lat": 13.04006, "lon": 77.5186, "station": "Peenya", "score": 0.0139, "tier": "Red", "volume": 5.1, "cii": 0.448, "cluster": 216}, {"lat": 12.9579, "lon": 77.7016, "station": "HAL Old Airport", "score": 0.0139, "tier": "Red", "volume": 19.5, "cii": 0.403, "cluster": 25}, {"lat": 12.98243, "lon": 77.54894, "station": "Magadi Road", "score": 0.0136, "tier": "Red", "volume": 8.5, "cii": 0.656, "cluster": 69}, {"lat": 13.03056, "lon": 77.53658, "station": "Yeshwanthpura", "score": 0.0135, "tier": "Red", "volume": 7.6, "cii": 0.423, "cluster": 131}, {"lat": 12.91692, "lon": 77.59541, "station": "Jayanagara", "score": 0.0135, "tier": "Red", "volume": 5.0, "cii": 0.596, "cluster": 319}, {"lat": 12.97303, "lon": 77.61586, "station": "Halasur", "score": 0.0134, "tier": "Red", "volume": 11.7, "cii": 0.454, "cluster": 26}, {"lat": 12.96442, "lon": 77.55479, "station": "Magadi Road", "score": 0.0132, "tier": "Red", "volume": 10.8, "cii": 0.404, "cluster": 76}, {"lat": 12.93438, "lon": 77.6126, "station": "Adugodi", "score": 0.0131, "tier": "Red", "volume": 6.0, "cii": 0.621, "cluster": 198}, {"lat": 12.94379, "lon": 77.69767, "station": "HAL Old Airport", "score": 0.013, "tier": "Red", "volume": 5.2, "cii": 0.471, "cluster": 201}, {"lat": 12.95176, "lon": 77.57691, "station": "V.V.Puram (C.Pet)", "score": 0.0128, "tier": "Red", "volume": 6.7, "cii": 0.646, "cluster": 304}, {"lat": 12.92624, "lon": 77.60888, "station": "Mico Layout", "score": 0.0123, "tier": "Red", "volume": 2.8, "cii": 0.501, "cluster": 65}, {"lat": 12.96358, "lon": 77.64153, "station": "Jeevanbheemanagar", "score": 0.0122, "tier": "Red", "volume": 4.6, "cii": 0.64, "cluster": 224}, {"lat": 13.04584, "lon": 77.75033, "station": "K.R. Pura", "score": 0.0119, "tier": "Red", "volume": 4.4, "cii": 0.449, "cluster": 82}, {"lat": 13.00124, "lon": 77.59552, "station": "R.T. Nagar", "score": 0.0114, "tier": "Amber", "volume": 23.0, "cii": 0.484, "cluster": 320}, {"lat": 12.96121, "lon": 77.58676, "station": "Halasuru Gate", "score": 0.0113, "tier": "Amber", "volume": 6.0, "cii": 0.65, "cluster": 285}, {"lat": 13.06887, "lon": 77.59265, "station": "Kodigehalli", "score": 0.0113, "tier": "Amber", "volume": 9.8, "cii": 0.408, "cluster": 199}, {"lat": 12.97137, "lon": 77.59754, "station": "Cubbon Park", "score": 0.0105, "tier": "Amber", "volume": 14.5, "cii": 0.645, "cluster": 27}, {"lat": 13.06335, "lon": 77.59098, "station": "Kodigehalli", "score": 0.0103, "tier": "Amber", "volume": 11.9, "cii": 0.476, "cluster": 63}, {"lat": 13.06312, "lon": 77.58711, "station": "Kodigehalli", "score": 0.0102, "tier": "Amber", "volume": 8.9, "cii": 0.489, "cluster": 73}, {"lat": 13.00714, "lon": 77.62159, "station": "K.G. Halli", "score": 0.0102, "tier": "Amber", "volume": 21.0, "cii": 0.46, "cluster": 303}, {"lat": 12.96959, "lon": 77.64131, "station": "Jeevanbheemanagar", "score": 0.0102, "tier": "Amber", "volume": 7.6, "cii": 0.406, "cluster": 13}, {"lat": 12.95672, "lon": 77.71508, "station": "HAL Old Airport", "score": 0.0101, "tier": "Amber", "volume": 3.5, "cii": 0.408, "cluster": 236}, {"lat": 12.90688, "lon": 77.54608, "station": "K.S. Layout", "score": 0.0099, "tier": "Amber", "volume": 4.8, "cii": 0.417, "cluster": 71}, {"lat": 12.92705, "lon": 77.69483, "station": "Bellandur", "score": 0.0099, "tier": "Amber", "volume": 2.9, "cii": 0.505, "cluster": 265}, {"lat": 12.97162, "lon": 77.5076, "station": "Jnanabharathi", "score": 0.0098, "tier": "Amber", "volume": 3.4, "cii": 0.429, "cluster": 59}, {"lat": 12.95952, "lon": 77.64518, "station": "Jeevanbheemanagar", "score": 0.0096, "tier": "Amber", "volume": 3.9, "cii": 0.598, "cluster": 44}, {"lat": 12.97438, "lon": 77.54569, "station": "Vijayanagara", "score": 0.0096, "tier": "Amber", "volume": 29.0, "cii": 0.571, "cluster": 60}, {"lat": 12.96095, "lon": 77.51174, "station": "Jnanabharathi", "score": 0.0093, "tier": "Amber", "volume": 13.2, "cii": 0.477, "cluster": 118}, {"lat": 12.9979, "lon": 77.57135, "station": "Malleshwaram", "score": 0.0093, "tier": "Amber", "volume": 48.2, "cii": 0.441, "cluster": 41}, {"lat": 12.95969, "lon": 77.64911, "station": "Jeevanbheemanagar", "score": 0.0092, "tier": "Amber", "volume": 5.2, "cii": 0.445, "cluster": 70}, {"lat": 13.00787, "lon": 77.54855, "station": "Rajajinagar", "score": 0.009, "tier": "Amber", "volume": 24.5, "cii": 0.566, "cluster": 116}, {"lat": 12.96125, "lon": 77.5839, "station": "Halasuru Gate", "score": 0.0089, "tier": "Amber", "volume": 5.5, "cii": 0.588, "cluster": 292}, {"lat": 12.98074, "lon": 77.55825, "station": "Magadi Road", "score": 0.0087, "tier": "Amber", "volume": 7.3, "cii": 0.61, "cluster": 178}, {"lat": 12.99263, "lon": 77.55815, "station": "Rajajinagar", "score": 0.0086, "tier": "Amber", "volume": 25.3, "cii": 0.587, "cluster": 307}, {"lat": 12.97006, "lon": 77.63897, "station": "Jeevanbheemanagar", "score": 0.0083, "tier": "Amber", "volume": 5.5, "cii": 0.463, "cluster": 54}, {"lat": 13.0353, "lon": 77.58902, "station": "Hebbala", "score": 0.0082, "tier": "Amber", "volume": 39.5, "cii": 0.406, "cluster": 43}, {"lat": 12.97141, "lon": 77.71199, "station": "HAL Old Airport", "score": 0.0081, "tier": "Amber", "volume": 7.5, "cii": 0.472, "cluster": 162}, {"lat": 13.02755, "lon": 77.54273, "station": "Yeshwanthpura", "score": 0.0079, "tier": "Amber", "volume": 7.9, "cii": 0.371, "cluster": 171}, {"lat": 12.9394, "lon": 77.58399, "station": "Wilson Garden", "score": 0.0078, "tier": "Amber", "volume": 13.5, "cii": 0.561, "cluster": 194}, {"lat": 13.04185, "lon": 77.5145, "station": "Peenya", "score": 0.0071, "tier": "Amber", "volume": 5.2, "cii": 0.408, "cluster": 261}, {"lat": 12.81849, "lon": 77.68915, "station": "Electronic City", "score": 0.0071, "tier": "Amber", "volume": 2.8, "cii": 0.433, "cluster": 260}, {"lat": 13.0471, "lon": 77.50101, "station": "Peenya", "score": 0.0071, "tier": "Amber", "volume": 15.0, "cii": 0.35, "cluster": 108}, {"lat": 12.94025, "lon": 77.57299, "station": "Basavanagudi", "score": 0.0071, "tier": "Amber", "volume": 15.0, "cii": 0.555, "cluster": 217}, {"lat": 13.02353, "lon": 77.59278, "station": "R.T. Nagar", "score": 0.007, "tier": "Amber", "volume": 4.7, "cii": 0.41, "cluster": 142}, {"lat": 12.91229, "lon": 77.62577, "station": "HSR Layout", "score": 0.0066, "tier": "Amber", "volume": 5.6, "cii": 0.473, "cluster": 45}, {"lat": 12.99479, "lon": 77.61029, "station": "Pulikeshinagar(F.Town)", "score": 0.0064, "tier": "Amber", "volume": 5.0, "cii": 0.417, "cluster": 127}, {"lat": 12.95858, "lon": 77.66825, "station": "HAL Old Airport", "score": 0.0063, "tier": "Amber", "volume": 4.0, "cii": 0.425, "cluster": 272}, {"lat": 13.09964, "lon": 77.58863, "station": "Yelahanka", "score": 0.0062, "tier": "Amber", "volume": 7.4, "cii": 0.373, "cluster": 186}, {"lat": 12.94059, "lon": 77.52465, "station": "Byatarayanapura", "score": 0.0062, "tier": "Amber", "volume": 7.2, "cii": 0.388, "cluster": 266}, {"lat": 12.90806, "lon": 77.6008, "station": "Mico Layout", "score": 0.0061, "tier": "Amber", "volume": 13.7, "cii": 0.568, "cluster": 104}, {"lat": 12.9911, "lon": 77.57168, "station": "Sheshadripuram", "score": 0.0059, "tier": "Amber", "volume": 8.0, "cii": 0.422, "cluster": 241}, {"lat": 12.98424, "lon": 77.56011, "station": "Rajajinagar", "score": 0.0058, "tier": "Amber", "volume": 6.1, "cii": 0.607, "cluster": 208}, {"lat": 12.99306, "lon": 77.55344, "station": "Rajajinagar", "score": 0.0058, "tier": "Amber", "volume": 5.5, "cii": 0.695, "cluster": 38}, {"lat": 13.14422, "lon": 77.61787, "station": "Chikkajala", "score": 0.0057, "tier": "Amber", "volume": 4.7, "cii": 0.385, "cluster": 269}, {"lat": 13.05085, "lon": 77.55277, "station": "Jalahalli", "score": 0.0057, "tier": "Amber", "volume": 2.9, "cii": 0.408, "cluster": 192}, {"lat": 12.97362, "lon": 77.58292, "station": "Halasuru Gate", "score": 0.0056, "tier": "Amber", "volume": 7.5, "cii": 0.708, "cluster": 253}, {"lat": 12.97222, "lon": 77.53782, "station": "Vijayanagara", "score": 0.0054, "tier": "Amber", "volume": 12.8, "cii": 0.615, "cluster": 137}, {"lat": 12.98706, "lon": 77.61944, "station": "Pulikeshinagar(F.Town)", "score": 0.0053, "tier": "Amber", "volume": 3.1, "cii": 0.456, "cluster": 204}, {"lat": 13.00002, "lon": 77.61106, "station": "Pulikeshinagar(F.Town)", "score": 0.0052, "tier": "Amber", "volume": 14.5, "cii": 0.381, "cluster": 202}, {"lat": 12.99843, "lon": 77.54213, "station": "Vijayanagara", "score": 0.0052, "tier": "Amber", "volume": 10.8, "cii": 0.652, "cluster": 5}, {"lat": 12.99649, "lon": 77.58447, "station": "Sheshadripuram", "score": 0.0051, "tier": "Amber", "volume": 5.6, "cii": 0.698, "cluster": 87}, {"lat": 12.93597, "lon": 77.51797, "station": "Byatarayanapura", "score": 0.0049, "tier": "Amber", "volume": 8.6, "cii": 0.384, "cluster": 206}, {"lat": 12.95928, "lon": 77.71604, "station": "HAL Old Airport", "score": 0.0047, "tier": "Amber", "volume": 7.4, "cii": 0.513, "cluster": 100}, {"lat": 12.92522, "lon": 77.63358, "station": "Adugodi", "score": 0.0045, "tier": "Amber", "volume": 3.2, "cii": 0.481, "cluster": 147}, {"lat": 12.93567, "lon": 77.60778, "station": "Mico Layout", "score": 0.0044, "tier": "Amber", "volume": 2.0, "cii": 0.655, "cluster": 318}, {"lat": 12.9882, "lon": 77.57707, "station": "Sheshadripuram", "score": 0.0043, "tier": "Amber", "volume": 3.1, "cii": 0.625, "cluster": 167}, {"lat": 12.97174, "lon": 77.6581, "station": "Jeevanbheemanagar", "score": 0.0043, "tier": "Amber", "volume": 16.8, "cii": 0.386, "cluster": 157}, {"lat": 12.96058, "lon": 77.63854, "station": "Halasur", "score": 0.0042, "tier": "Amber", "volume": 4.7, "cii": 0.595, "cluster": 306}, {"lat": 13.02808, "lon": 77.57352, "station": "Sadashivanagar", "score": 0.0042, "tier": "Amber", "volume": 20.4, "cii": 0.468, "cluster": 90}, {"lat": 12.91739, "lon": 77.57798, "station": "Jayanagara", "score": 0.0042, "tier": "Amber", "volume": 3.2, "cii": 0.653, "cluster": 239}, {"lat": 12.9167, "lon": 77.67325, "station": "Bellandur", "score": 0.0041, "tier": "Amber", "volume": 3.1, "cii": 0.438, "cluster": 81}, {"lat": 12.9946, "lon": 77.61558, "station": "Pulikeshinagar(F.Town)", "score": 0.0039, "tier": "Amber", "volume": 5.9, "cii": 0.403, "cluster": 7}, {"lat": 13.0188, "lon": 77.55792, "station": "Yeshwanthpura", "score": 0.0039, "tier": "Amber", "volume": 5.0, "cii": 0.468, "cluster": 153}, {"lat": 12.96859, "lon": 77.64972, "station": "Jeevanbheemanagar", "score": 0.0039, "tier": "Amber", "volume": 2.7, "cii": 0.466, "cluster": 302}, {"lat": 12.91708, "lon": 77.5968, "station": "Jayanagara", "score": 0.0038, "tier": "Amber", "volume": 1.5, "cii": 0.665, "cluster": 181}, {"lat": 12.98242, "lon": 77.56305, "station": "Magadi Road", "score": 0.0037, "tier": "Amber", "volume": 7.2, "cii": 0.668, "cluster": 101}, {"lat": 12.93176, "lon": 77.51553, "station": "Kengeri", "score": 0.0036, "tier": "Amber", "volume": 1.9, "cii": 0.505, "cluster": 105}, {"lat": 12.99178, "lon": 77.53838, "station": "Vijayanagara", "score": 0.0036, "tier": "Amber", "volume": 11.2, "cii": 0.595, "cluster": 121}, {"lat": 12.93644, "lon": 77.60619, "station": "Mico Layout", "score": 0.0035, "tier": "Amber", "volume": 2.0, "cii": 0.718, "cluster": 308}, {"lat": 13.0085, "lon": 77.54301, "station": "Rajajinagar", "score": 0.0034, "tier": "Amber", "volume": 4.1, "cii": 0.423, "cluster": 134}, {"lat": 12.96428, "lon": 77.5425, "station": "Vijayanagara", "score": 0.0034, "tier": "Amber", "volume": 8.0, "cii": 0.408, "cluster": 262}, {"lat": 12.97996, "lon": 77.55458, "station": "Magadi Road", "score": 0.0033, "tier": "Amber", "volume": 5.7, "cii": 0.609, "cluster": 86}, {"lat": 12.91246, "lon": 77.63464, "station": "HSR Layout", "score": 0.0032, "tier": "Amber", "volume": 33.9, "cii": 0.366, "cluster": 8}, {"lat": 13.0475, "lon": 77.57588, "station": "Kodigehalli", "score": 0.0032, "tier": "Amber", "volume": 9.1, "cii": 0.39, "cluster": 51}, {"lat": 12.97372, "lon": 77.62297, "station": "Halasur", "score": 0.0032, "tier": "Amber", "volume": 4.5, "cii": 0.475, "cluster": 102}, {"lat": 12.93238, "lon": 77.63172, "station": "Adugodi", "score": 0.0032, "tier": "Amber", "volume": 22.0, "cii": 0.422, "cluster": 254}, {"lat": 13.09367, "lon": 77.59423, "station": "Yelahanka", "score": 0.0032, "tier": "Amber", "volume": 12.4, "cii": 0.368, "cluster": 143}, {"lat": 12.95526, "lon": 77.57991, "station": "City Market", "score": 0.0032, "tier": "Amber", "volume": 4.2, "cii": 0.616, "cluster": 231}, {"lat": 12.98918, "lon": 77.50781, "station": "Kamakshipalya", "score": 0.0031, "tier": "Amber", "volume": 4.1, "cii": 0.434, "cluster": 252}, {"lat": 12.95157, "lon": 77.60758, "station": "Ashok Nagar", "score": 0.0031, "tier": "Amber", "volume": 9.8, "cii": 0.671, "cluster": 273}, {"lat": 12.97173, "lon": 77.54684, "station": "Magadi Road", "score": 0.0031, "tier": "Amber", "volume": 3.8, "cii": 0.579, "cluster": 136}, {"lat": 12.99001, "lon": 77.57364, "station": "Sheshadripuram", "score": 0.0031, "tier": "Amber", "volume": 8.9, "cii": 0.411, "cluster": 112}, {"lat": 13.05496, "lon": 77.50761, "station": "Chikkabanavara", "score": 0.0031, "tier": "Amber", "volume": 3.9, "cii": 0.474, "cluster": 117}, {"lat": 12.99011, "lon": 77.60141, "station": "Shivajinagar", "score": 0.0031, "tier": "Amber", "volume": 7.4, "cii": 0.412, "cluster": 218}, {"lat": 13.03703, "lon": 77.57458, "station": "Kodigehalli", "score": 0.0031, "tier": "Amber", "volume": 8.7, "cii": 0.401, "cluster": 210}, {"lat": 13.02891, "lon": 77.53976, "station": "Yeshwanthpura", "score": 0.0031, "tier": "Amber", "volume": 3.7, "cii": 0.426, "cluster": 220}, {"lat": 12.97767, "lon": 77.54436, "station": "Vijayanagara", "score": 0.0031, "tier": "Amber", "volume": 15.2, "cii": 0.595, "cluster": 164}, {"lat": 13.0346, "lon": 77.62443, "station": "K.G. Halli", "score": 0.003, "tier": "Amber", "volume": 8.8, "cii": 0.498, "cluster": 193}, {"lat": 12.93634, "lon": 77.69242, "station": "HAL Old Airport", "score": 0.003, "tier": "Amber", "volume": 2.4, "cii": 0.473, "cluster": 141}, {"lat": 13.06043, "lon": 77.65209, "station": "Hennuru", "score": 0.003, "tier": "Amber", "volume": 11.0, "cii": 0.412, "cluster": 294}, {"lat": 12.97818, "lon": 77.63922, "station": "Jeevanbheemanagar", "score": 0.003, "tier": "Amber", "volume": 4.4, "cii": 0.372, "cluster": 247}, {"lat": 12.97374, "lon": 77.60938, "station": "Ashok Nagar", "score": 0.003, "tier": "Amber", "volume": 8.6, "cii": 0.454, "cluster": 250}, {"lat": 13.07162, "lon": 77.59258, "station": "Kodigehalli", "score": 0.0029, "tier": "Amber", "volume": 8.2, "cii": 0.442, "cluster": 120}, {"lat": 12.92862, "lon": 77.58095, "station": "Jayanagara", "score": 0.0029, "tier": "Amber", "volume": 9.6, "cii": 0.636, "cluster": 180}, {"lat": 12.91229, "lon": 77.58573, "station": "J.P. Nagar", "score": 0.0029, "tier": "Amber", "volume": 3.2, "cii": 0.631, "cluster": 92}], "morning_peak": [{"lat": 12.97263, "lon": 77.57758, "station": "Upparpet", "score": 0.5132, "tier": "Red", "volume": 764.9, "cii": 0.824, "cluster": 2}, {"lat": 12.99161, "lon": 77.65242, "station": "Banaswadi", "score": 0.4491, "tier": "Red", "volume": 42.7, "cii": 0.634, "cluster": 312}, {"lat": 12.93352, "lon": 77.69065, "station": "HAL Old Airport", "score": 0.4279, "tier": "Red", "volume": 136.6, "cii": 0.595, "cluster": 10}, {"lat": 12.93926, "lon": 77.69645, "station": "HAL Old Airport", "score": 0.4058, "tier": "Red", "volume": 53.1, "cii": 0.682, "cluster": 15}, {"lat": 13.00037, "lon": 77.67697, "station": "Banaswadi", "score": 0.1929, "tier": "Red", "volume": 35.1, "cii": 0.68, "cluster": 97}, {"lat": 12.92705, "lon": 77.69483, "station": "Bellandur", "score": 0.1818, "tier": "Red", "volume": 15.0, "cii": 0.707, "cluster": 265}, {"lat": 12.98157, "lon": 77.6091, "station": "Shivajinagar", "score": 0.1651, "tier": "Red", "volume": 259.3, "cii": 0.79, "cluster": 3}, {"lat": 12.93043, "lon": 77.68541, "station": "HAL Old Airport", "score": 0.136, "tier": "Red", "volume": 31.5, "cii": 0.686, "cluster": 132}, {"lat": 12.9514, "lon": 77.7175, "station": "Whitefield", "score": 0.1331, "tier": "Red", "volume": 15.8, "cii": 0.632, "cluster": 182}, {"lat": 12.96083, "lon": 77.52825, "station": "Byatarayanapura", "score": 0.133, "tier": "Red", "volume": 60.0, "cii": 0.623, "cluster": 140}, {"lat": 12.99625, "lon": 77.66852, "station": "Mahadevapura", "score": 0.1312, "tier": "Red", "volume": 16.3, "cii": 0.618, "cluster": 109}, {"lat": 12.97915, "lon": 77.69512, "station": "Mahadevapura", "score": 0.1012, "tier": "Red", "volume": 6.8, "cii": 0.716, "cluster": 94}, {"lat": 12.96686, "lon": 77.65821, "station": "Jeevanbheemanagar", "score": 0.0882, "tier": "Red", "volume": 26.5, "cii": 0.676, "cluster": 205}, {"lat": 12.95022, "lon": 77.69969, "station": "HAL Old Airport", "score": 0.0841, "tier": "Red", "volume": 15.1, "cii": 0.649, "cluster": 62}, {"lat": 12.99921, "lon": 77.54997, "station": "Malleshwaram", "score": 0.0789, "tier": "Red", "volume": 167.9, "cii": 0.817, "cluster": 22}, {"lat": 12.99553, "lon": 77.69578, "station": "Mahadevapura", "score": 0.078, "tier": "Red", "volume": 18.3, "cii": 0.663, "cluster": 19}, {"lat": 13.18547, "lon": 77.68, "station": "Chikkajala", "score": 0.0776, "tier": "Red", "volume": 32.4, "cii": 0.731, "cluster": 23}, {"lat": 12.97705, "lon": 77.57078, "station": "Chamarajpet", "score": 0.0764, "tier": "Red", "volume": 19.5, "cii": 0.847, "cluster": 57}, {"lat": 12.97067, "lon": 77.64651, "station": "Jeevanbheemanagar", "score": 0.0656, "tier": "Red", "volume": 16.1, "cii": 0.686, "cluster": 237}, {"lat": 12.9855, "lon": 77.74574, "station": "Whitefield", "score": 0.0617, "tier": "Red", "volume": 10.0, "cii": 0.56, "cluster": 301}, {"lat": 12.93196, "lon": 77.6959, "station": "Bellandur", "score": 0.0597, "tier": "Red", "volume": 12.0, "cii": 0.766, "cluster": 274}, {"lat": 12.97174, "lon": 77.6581, "station": "Jeevanbheemanagar", "score": 0.0565, "tier": "Red", "volume": 23.5, "cii": 0.606, "cluster": 157}, {"lat": 12.92753, "lon": 77.58596, "station": "Jayanagara", "score": 0.0539, "tier": "Red", "volume": 12.7, "cii": 0.828, "cluster": 33}, {"lat": 12.98356, "lon": 77.60355, "station": "Shivajinagar", "score": 0.0505, "tier": "Red", "volume": 52.7, "cii": 0.835, "cluster": 32}, {"lat": 12.97438, "lon": 77.54569, "station": "Vijayanagara", "score": 0.046, "tier": "Red", "volume": 66.6, "cii": 0.77, "cluster": 60}, {"lat": 13.00843, "lon": 77.69538, "station": "K.R. Pura", "score": 0.0436, "tier": "Red", "volume": 15.8, "cii": 0.641, "cluster": 6}, {"lat": 12.97818, "lon": 77.63922, "station": "Jeevanbheemanagar", "score": 0.0363, "tier": "Red", "volume": 13.3, "cii": 0.608, "cluster": 247}, {"lat": 12.93674, "lon": 77.60168, "station": "Mico Layout", "score": 0.0357, "tier": "Red", "volume": 5.1, "cii": 0.819, "cluster": 46}, {"lat": 12.84068, "lon": 77.67671, "station": "Electronic City", "score": 0.0326, "tier": "Red", "volume": 9.7, "cii": 0.577, "cluster": 213}, {"lat": 12.9579, "lon": 77.7016, "station": "HAL Old Airport", "score": 0.0321, "tier": "Red", "volume": 16.2, "cii": 0.614, "cluster": 25}, {"lat": 12.94379, "lon": 77.69767, "station": "HAL Old Airport", "score": 0.0321, "tier": "Red", "volume": 9.8, "cii": 0.73, "cluster": 201}, {"lat": 12.97826, "lon": 77.62866, "station": "Jeevanbheemanagar", "score": 0.031, "tier": "Red", "volume": 4.6, "cii": 0.622, "cluster": 68}, {"lat": 12.94811, "lon": 77.57999, "station": "Wilson Garden", "score": 0.0291, "tier": "Red", "volume": 8.6, "cii": 0.773, "cluster": 255}, {"lat": 12.93574, "lon": 77.61601, "station": "Adugodi", "score": 0.0291, "tier": "Red", "volume": 16.1, "cii": 0.801, "cluster": 88}, {"lat": 12.95949, "lon": 77.57709, "station": "City Market", "score": 0.0287, "tier": "Red", "volume": 25.2, "cii": 0.836, "cluster": 35}, {"lat": 13.19124, "lon": 77.64622, "station": "Chikkajala", "score": 0.0279, "tier": "Red", "volume": 8.3, "cii": 0.716, "cluster": 77}, {"lat": 12.96644, "lon": 77.64154, "station": "Jeevanbheemanagar", "score": 0.0274, "tier": "Red", "volume": 8.0, "cii": 0.865, "cluster": 240}, {"lat": 13.01061, "lon": 77.55387, "station": "Malleshwaram", "score": 0.0251, "tier": "Red", "volume": 128.0, "cii": 0.723, "cluster": 31}, {"lat": 12.96614, "lon": 77.53766, "station": "Vijayanagara", "score": 0.0242, "tier": "Red", "volume": 25.1, "cii": 0.794, "cluster": 28}, {"lat": 13.07105, "lon": 77.58794, "station": "Kodigehalli", "score": 0.0231, "tier": "Red", "volume": 49.9, "cii": 0.568, "cluster": 53}, {"lat": 12.95313, "lon": 77.54216, "station": "Byatarayanapura", "score": 0.0226, "tier": "Red", "volume": 8.7, "cii": 0.822, "cluster": 74}, {"lat": 12.97303, "lon": 77.61586, "station": "Halasur", "score": 0.0214, "tier": "Red", "volume": 14.8, "cii": 0.681, "cluster": 26}, {"lat": 13.03056, "lon": 77.53658, "station": "Yeshwanthpura", "score": 0.0214, "tier": "Red", "volume": 9.4, "cii": 0.644, "cluster": 131}, {"lat": 12.91708, "lon": 77.5968, "station": "Jayanagara", "score": 0.0214, "tier": "Red", "volume": 3.5, "cii": 0.851, "cluster": 181}, {"lat": 13.12189, "lon": 77.6309, "station": "Chikkajala", "score": 0.0205, "tier": "Red", "volume": 3.7, "cii": 0.69, "cluster": 251}, {"lat": 12.92624, "lon": 77.60888, "station": "Mico Layout", "score": 0.0204, "tier": "Red", "volume": 3.6, "cii": 0.753, "cluster": 65}, {"lat": 12.98875, "lon": 77.55019, "station": "Rajajinagar", "score": 0.0203, "tier": "Red", "volume": 6.1, "cii": 0.874, "cluster": 128}, {"lat": 12.97141, "lon": 77.71199, "station": "HAL Old Airport", "score": 0.0199, "tier": "Red", "volume": 7.3, "cii": 0.679, "cluster": 162}, {"lat": 12.93238, "lon": 77.63172, "station": "Adugodi", "score": 0.0196, "tier": "Red", "volume": 8.6, "cii": 0.674, "cluster": 254}, {"lat": 12.98125, "lon": 77.59845, "station": "Shivajinagar", "score": 0.0195, "tier": "Red", "volume": 33.5, "cii": 0.775, "cluster": 111}, {"lat": 12.95969, "lon": 77.64911, "station": "Jeevanbheemanagar", "score": 0.0181, "tier": "Red", "volume": 9.3, "cii": 0.661, "cluster": 70}, {"lat": 13.03393, "lon": 77.5578, "station": "Yeshwanthpura", "score": 0.0181, "tier": "Red", "volume": 5.3, "cii": 0.601, "cluster": 122}, {"lat": 12.96364, "lon": 77.73309, "station": "Whitefield", "score": 0.0173, "tier": "Red", "volume": 4.0, "cii": 0.656, "cluster": 246}, {"lat": 12.9441, "lon": 77.57111, "station": "Basavanagudi", "score": 0.0172, "tier": "Red", "volume": 17.7, "cii": 0.8, "cluster": 91}, {"lat": 12.98762, "lon": 77.73461, "station": "Mahadevapura", "score": 0.0169, "tier": "Red", "volume": 5.8, "cii": 0.56, "cluster": 58}, {"lat": 13.0188, "lon": 77.55792, "station": "Yeshwanthpura", "score": 0.0168, "tier": "Red", "volume": 7.5, "cii": 0.613, "cluster": 153}, {"lat": 13.01529, "lon": 77.55514, "station": "Malleshwaram", "score": 0.0157, "tier": "Red", "volume": 3.9, "cii": 0.702, "cluster": 228}, {"lat": 12.97364, "lon": 77.55109, "station": "Magadi Road", "score": 0.0153, "tier": "Red", "volume": 28.5, "cii": 0.767, "cluster": 64}, {"lat": 12.94627, "lon": 77.58802, "station": "Wilson Garden", "score": 0.0148, "tier": "Red", "volume": 7.0, "cii": 0.624, "cluster": 248}, {"lat": 13.02755, "lon": 77.54273, "station": "Yeshwanthpura", "score": 0.0147, "tier": "Red", "volume": 12.0, "cii": 0.575, "cluster": 171}, {"lat": 12.99306, "lon": 77.55344, "station": "Rajajinagar", "score": 0.0147, "tier": "Red", "volume": 7.2, "cii": 0.86, "cluster": 38}, {"lat": 13.00124, "lon": 77.59552, "station": "R.T. Nagar", "score": 0.0145, "tier": "Red", "volume": 16.0, "cii": 0.682, "cluster": 320}, {"lat": 12.96358, "lon": 77.64153, "station": "Jeevanbheemanagar", "score": 0.0138, "tier": "Red", "volume": 5.1, "cii": 0.839, "cluster": 224}, {"lat": 13.05085, "lon": 77.55277, "station": "Jalahalli", "score": 0.013, "tier": "Red", "volume": 6.1, "cii": 0.584, "cluster": 192}, {"lat": 12.95727, "lon": 77.5188, "station": "Byatarayanapura", "score": 0.012, "tier": "Red", "volume": 3.5, "cii": 0.659, "cluster": 1}, {"lat": 13.00346, "lon": 77.7235, "station": "Mahadevapura", "score": 0.0118, "tier": "Red", "volume": 2.4, "cii": 0.586, "cluster": 174}, {"lat": 12.97767, "lon": 77.54436, "station": "Vijayanagara", "score": 0.0114, "tier": "Red", "volume": 7.2, "cii": 0.801, "cluster": 164}, {"lat": 12.99956, "lon": 77.56943, "station": "Malleshwaram", "score": 0.0106, "tier": "Amber", "volume": 21.9, "cii": 0.667, "cluster": 47}, {"lat": 12.98808, "lon": 77.53758, "station": "Vijayanagara", "score": 0.0103, "tier": "Amber", "volume": 7.7, "cii": 0.837, "cluster": 66}, {"lat": 12.97396, "lon": 77.62011, "station": "Halasur", "score": 0.0103, "tier": "Amber", "volume": 7.3, "cii": 0.702, "cluster": 95}, {"lat": 12.95672, "lon": 77.71508, "station": "HAL Old Airport", "score": 0.0102, "tier": "Amber", "volume": 4.2, "cii": 0.674, "cluster": 236}, {"lat": 12.93634, "lon": 77.69242, "station": "HAL Old Airport", "score": 0.0101, "tier": "Amber", "volume": 4.7, "cii": 0.67, "cluster": 141}, {"lat": 13.0057, "lon": 77.6858, "station": "K.R. Pura", "score": 0.0101, "tier": "Amber", "volume": 11.8, "cii": 0.645, "cluster": 14}, {"lat": 12.97137, "lon": 77.59754, "station": "Cubbon Park", "score": 0.0097, "tier": "Amber", "volume": 14.7, "cii": 0.86, "cluster": 27}, {"lat": 12.96959, "lon": 77.64131, "station": "Jeevanbheemanagar", "score": 0.0095, "tier": "Amber", "volume": 15.2, "cii": 0.6, "cluster": 13}, {"lat": 13.0353, "lon": 77.58902, "station": "Hebbala", "score": 0.0094, "tier": "Amber", "volume": 32.7, "cii": 0.607, "cluster": 43}, {"lat": 12.95952, "lon": 77.64518, "station": "Jeevanbheemanagar", "score": 0.0093, "tier": "Amber", "volume": 10.7, "cii": 0.773, "cluster": 44}, {"lat": 12.92977, "lon": 77.69485, "station": "HAL Old Airport", "score": 0.0092, "tier": "Amber", "volume": 3.0, "cii": 0.703, "cluster": 280}, {"lat": 12.97571, "lon": 77.55985, "station": "Magadi Road", "score": 0.0092, "tier": "Amber", "volume": 18.6, "cii": 0.685, "cluster": 78}, {"lat": 12.9979, "lon": 77.57135, "station": "Malleshwaram", "score": 0.0092, "tier": "Amber", "volume": 58.9, "cii": 0.658, "cluster": 41}, {"lat": 12.99934, "lon": 77.62487, "station": "Pulikeshinagar(F.Town)", "score": 0.0091, "tier": "Amber", "volume": 10.0, "cii": 0.71, "cluster": 189}, {"lat": 12.93508, "lon": 77.61382, "station": "Adugodi", "score": 0.009, "tier": "Amber", "volume": 9.0, "cii": 0.777, "cluster": 279}, {"lat": 12.99843, "lon": 77.54213, "station": "Vijayanagara", "score": 0.009, "tier": "Amber", "volume": 12.9, "cii": 0.817, "cluster": 5}, {"lat": 12.99178, "lon": 77.53838, "station": "Vijayanagara", "score": 0.009, "tier": "Amber", "volume": 4.3, "cii": 0.901, "cluster": 121}, {"lat": 12.93567, "lon": 77.60778, "station": "Mico Layout", "score": 0.0089, "tier": "Amber", "volume": 2.0, "cii": 0.978, "cluster": 318}, {"lat": 12.98243, "lon": 77.54894, "station": "Magadi Road", "score": 0.0088, "tier": "Amber", "volume": 16.2, "cii": 0.84, "cluster": 69}, {"lat": 12.91692, "lon": 77.59541, "station": "Jayanagara", "score": 0.0086, "tier": "Amber", "volume": 3.0, "cii": 0.793, "cluster": 319}, {"lat": 13.01776, "lon": 77.53156, "station": "Rajajinagar", "score": 0.0085, "tier": "Amber", "volume": 8.1, "cii": 0.656, "cluster": 61}, {"lat": 13.05851, "lon": 77.59308, "station": "Kodigehalli", "score": 0.0085, "tier": "Amber", "volume": 4.2, "cii": 0.721, "cluster": 200}, {"lat": 12.96859, "lon": 77.64972, "station": "Jeevanbheemanagar", "score": 0.0084, "tier": "Amber", "volume": 3.3, "cii": 0.7, "cluster": 302}, {"lat": 12.95526, "lon": 77.57991, "station": "City Market", "score": 0.0081, "tier": "Amber", "volume": 3.2, "cii": 0.796, "cluster": 231}, {"lat": 12.97746, "lon": 77.59106, "station": "Cubbon Park", "score": 0.008, "tier": "Amber", "volume": 2.7, "cii": 0.829, "cluster": 150}, {"lat": 12.97011, "lon": 77.60672, "station": "Ashok Nagar", "score": 0.0079, "tier": "Amber", "volume": 7.5, "cii": 0.587, "cluster": 144}, {"lat": 12.97686, "lon": 77.58904, "station": "Cubbon Park", "score": 0.0078, "tier": "Amber", "volume": 3.7, "cii": 0.887, "cluster": 151}, {"lat": 12.96469, "lon": 77.71777, "station": "HAL Old Airport", "score": 0.0076, "tier": "Amber", "volume": 32.1, "cii": 0.631, "cluster": 163}, {"lat": 12.9594, "lon": 77.65576, "station": "Jeevanbheemanagar", "score": 0.0075, "tier": "Amber", "volume": 3.6, "cii": 0.637, "cluster": 295}, {"lat": 13.00674, "lon": 77.57055, "station": "Malleshwaram", "score": 0.0072, "tier": "Amber", "volume": 70.6, "cii": 0.657, "cluster": 34}, {"lat": 12.98102, "lon": 77.58856, "station": "Cubbon Park", "score": 0.0072, "tier": "Amber", "volume": 6.3, "cii": 0.861, "cluster": 270}, {"lat": 12.9882, "lon": 77.57707, "station": "Sheshadripuram", "score": 0.0072, "tier": "Amber", "volume": 4.2, "cii": 0.876, "cluster": 167}, {"lat": 12.90652, "lon": 77.6299, "station": "HSR Layout", "score": 0.0072, "tier": "Amber", "volume": 3.1, "cii": 0.638, "cluster": 72}, {"lat": 12.99649, "lon": 77.58447, "station": "Sheshadripuram", "score": 0.0071, "tier": "Amber", "volume": 7.4, "cii": 0.909, "cluster": 87}, {"lat": 12.94025, "lon": 77.57299, "station": "Basavanagudi", "score": 0.0071, "tier": "Amber", "volume": 11.7, "cii": 0.814, "cluster": 217}, {"lat": 13.00444, "lon": 77.55349, "station": "Malleshwaram", "score": 0.007, "tier": "Amber", "volume": 4.9, "cii": 0.817, "cluster": 89}, {"lat": 12.97996, "lon": 77.55458, "station": "Magadi Road", "score": 0.0069, "tier": "Amber", "volume": 3.9, "cii": 0.863, "cluster": 86}, {"lat": 12.98529, "lon": 77.55358, "station": "Rajajinagar", "score": 0.0068, "tier": "Amber", "volume": 17.1, "cii": 0.811, "cluster": 99}, {"lat": 13.0475, "lon": 77.57588, "station": "Kodigehalli", "score": 0.0068, "tier": "Amber", "volume": 12.6, "cii": 0.604, "cluster": 51}, {"lat": 13.00714, "lon": 77.62159, "station": "K.G. Halli", "score": 0.0068, "tier": "Amber", "volume": 10.5, "cii": 0.666, "cluster": 303}, {"lat": 12.97504, "lon": 77.60412, "station": "Cubbon Park", "score": 0.0067, "tier": "Amber", "volume": 13.0, "cii": 0.572, "cluster": 276}, {"lat": 12.93438, "lon": 77.6126, "station": "Adugodi", "score": 0.0066, "tier": "Amber", "volume": 2.3, "cii": 0.839, "cluster": 198}, {"lat": 13.02808, "lon": 77.57352, "station": "Sadashivanagar", "score": 0.0064, "tier": "Amber", "volume": 10.2, "cii": 0.619, "cluster": 90}, {"lat": 12.99717, "lon": 77.61072, "station": "Pulikeshinagar(F.Town)", "score": 0.006, "tier": "Amber", "volume": 3.8, "cii": 0.677, "cluster": 126}, {"lat": 12.98074, "lon": 77.55825, "station": "Magadi Road", "score": 0.0059, "tier": "Amber", "volume": 4.8, "cii": 0.802, "cluster": 178}, {"lat": 12.95858, "lon": 77.66825, "station": "HAL Old Airport", "score": 0.0059, "tier": "Amber", "volume": 3.2, "cii": 0.641, "cluster": 272}, {"lat": 12.92231, "lon": 77.58071, "station": "Jayanagara", "score": 0.0058, "tier": "Amber", "volume": 5.0, "cii": 0.76, "cluster": 311}, {"lat": 12.98424, "lon": 77.56011, "station": "Rajajinagar", "score": 0.0056, "tier": "Amber", "volume": 6.1, "cii": 0.803, "cluster": 208}, {"lat": 12.93176, "lon": 77.51553, "station": "Kengeri", "score": 0.0055, "tier": "Amber", "volume": 3.9, "cii": 0.702, "cluster": 105}, {"lat": 13.0085, "lon": 77.54301, "station": "Rajajinagar", "score": 0.0055, "tier": "Amber", "volume": 4.9, "cii": 0.623, "cluster": 134}, {"lat": 12.99265, "lon": 77.58896, "station": "High ground", "score": 0.0054, "tier": "Amber", "volume": 37.8, "cii": 0.752, "cluster": 17}, {"lat": 12.90806, "lon": 77.6008, "station": "Mico Layout", "score": 0.0054, "tier": "Amber", "volume": 24.4, "cii": 0.776, "cluster": 104}, {"lat": 12.98925, "lon": 77.59908, "station": "Shivajinagar", "score": 0.0053, "tier": "Amber", "volume": 7.6, "cii": 0.651, "cluster": 133}, {"lat": 12.92862, "lon": 77.58095, "station": "Jayanagara", "score": 0.0053, "tier": "Amber", "volume": 20.5, "cii": 0.81, "cluster": 180}, {"lat": 12.93597, "lon": 77.51797, "station": "Byatarayanapura", "score": 0.0053, "tier": "Amber", "volume": 5.8, "cii": 0.579, "cluster": 206}, {"lat": 12.87582, "lon": 77.64802, "station": "Hulimavu", "score": 0.0053, "tier": "Amber", "volume": 9.3, "cii": 0.692, "cluster": 93}, {"lat": 12.92674, "lon": 77.55081, "station": "Banashankari", "score": 0.0051, "tier": "Amber", "volume": 14.8, "cii": 0.78, "cluster": 42}, {"lat": 12.96121, "lon": 77.58676, "station": "Halasuru Gate", "score": 0.005, "tier": "Amber", "volume": 5.0, "cii": 0.856, "cluster": 285}, {"lat": 12.91739, "lon": 77.57798, "station": "Jayanagara", "score": 0.0049, "tier": "Amber", "volume": 3.5, "cii": 0.864, "cluster": 239}, {"lat": 12.92522, "lon": 77.63358, "station": "Adugodi", "score": 0.0048, "tier": "Amber", "volume": 2.2, "cii": 0.695, "cluster": 147}, {"lat": 12.9172, "lon": 77.57352, "station": "Banashankari", "score": 0.0048, "tier": "Amber", "volume": 3.9, "cii": 0.801, "cluster": 80}, {"lat": 12.87045, "lon": 77.65446, "station": "Electronic City", "score": 0.0048, "tier": "Amber", "volume": 6.1, "cii": 0.639, "cluster": 130}, {"lat": 12.9394, "lon": 77.58399, "station": "Wilson Garden", "score": 0.0048, "tier": "Amber", "volume": 12.6, "cii": 0.785, "cluster": 194}, {"lat": 13.14422, "lon": 77.61787, "station": "Chikkajala", "score": 0.0048, "tier": "Amber", "volume": 6.5, "cii": 0.604, "cluster": 269}, {"lat": 12.96442, "lon": 77.55479, "station": "Magadi Road", "score": 0.0047, "tier": "Amber", "volume": 4.0, "cii": 0.626, "cluster": 76}, {"lat": 12.9893, "lon": 77.50059, "station": "Kamakshipalya", "score": 0.0046, "tier": "Amber", "volume": 10.0, "cii": 0.56, "cluster": 110}, {"lat": 13.00787, "lon": 77.54855, "station": "Rajajinagar", "score": 0.0045, "tier": "Amber", "volume": 8.5, "cii": 0.82, "cluster": 116}, {"lat": 12.96199, "lon": 77.59817, "station": "Ashok Nagar", "score": 0.0045, "tier": "Amber", "volume": 16.8, "cii": 0.766, "cluster": 103}, {"lat": 12.97367, "lon": 77.60755, "station": "Ashok Nagar", "score": 0.0044, "tier": "Amber", "volume": 7.0, "cii": 0.681, "cluster": 139}, {"lat": 12.95683, "lon": 77.57514, "station": "V.V.Puram (C.Pet)", "score": 0.0043, "tier": "Amber", "volume": 6.0, "cii": 0.783, "cluster": 281}, {"lat": 12.98538, "lon": 77.5941, "station": "Cubbon Park", "score": 0.0043, "tier": "Amber", "volume": 3.4, "cii": 0.861, "cluster": 55}, {"lat": 12.98242, "lon": 77.56305, "station": "Magadi Road", "score": 0.0042, "tier": "Amber", "volume": 4.6, "cii": 0.87, "cluster": 101}, {"lat": 13.057, "lon": 77.54715, "station": "Jalahalli", "score": 0.0042, "tier": "Amber", "volume": 3.1, "cii": 0.655, "cluster": 176}, {"lat": 12.95801, "lon": 77.58212, "station": "City Market", "score": 0.0041, "tier": "Amber", "volume": 4.4, "cii": 0.843, "cluster": 215}, {"lat": 13.02353, "lon": 77.59278, "station": "R.T. Nagar", "score": 0.004, "tier": "Amber", "volume": 13.3, "cii": 0.631, "cluster": 142}, {"lat": 12.89429, "lon": 77.65718, "station": "HSR Layout", "score": 0.004, "tier": "Amber", "volume": 2.8, "cii": 0.615, "cluster": 244}, {"lat": 12.97162, "lon": 77.5076, "station": "Jnanabharathi", "score": 0.004, "tier": "Amber", "volume": 2.8, "cii": 0.692, "cluster": 59}, {"lat": 13.07257, "lon": 77.59032, "station": "Kodigehalli", "score": 0.004, "tier": "Amber", "volume": 6.6, "cii": 0.675, "cluster": 146}, {"lat": 12.97374, "lon": 77.60938, "station": "Ashok Nagar", "score": 0.004, "tier": "Amber", "volume": 3.9, "cii": 0.659, "cluster": 250}, {"lat": 12.98918, "lon": 77.50781, "station": "Kamakshipalya", "score": 0.0039, "tier": "Amber", "volume": 2.4, "cii": 0.673, "cluster": 252}, {"lat": 12.97372, "lon": 77.62297, "station": "Halasur", "score": 0.0039, "tier": "Amber", "volume": 5.1, "cii": 0.691, "cluster": 102}, {"lat": 13.0068, "lon": 77.57885, "station": "Sadashivanagar", "score": 0.0038, "tier": "Amber", "volume": 3.4, "cii": 0.63, "cluster": 268}, {"lat": 12.987, "lon": 77.51922, "station": "Kamakshipalya", "score": 0.0036, "tier": "Amber", "volume": 9.9, "cii": 0.562, "cluster": 257}, {"lat": 13.00292, "lon": 77.55339, "station": "Malleshwaram", "score": 0.0036, "tier": "Amber", "volume": 8.5, "cii": 0.834, "cluster": 238}, {"lat": 13.04006, "lon": 77.5186, "station": "Peenya", "score": 0.0036, "tier": "Amber", "volume": 3.3, "cii": 0.663, "cluster": 216}, {"lat": 13.09367, "lon": 77.59423, "station": "Yelahanka", "score": 0.0036, "tier": "Amber", "volume": 9.6, "cii": 0.586, "cluster": 143}, {"lat": 13.06335, "lon": 77.59098, "station": "Kodigehalli", "score": 0.0036, "tier": "Amber", "volume": 6.3, "cii": 0.642, "cluster": 63}, {"lat": 12.9489, "lon": 77.59788, "station": "Wilson Garden", "score": 0.0036, "tier": "Amber", "volume": 8.2, "cii": 0.835, "cluster": 185}, {"lat": 12.98891, "lon": 77.59228, "station": "High ground", "score": 0.0035, "tier": "Amber", "volume": 6.7, "cii": 0.806, "cluster": 11}, {"lat": 12.8419, "lon": 77.64582, "station": "Electronic City", "score": 0.0035, "tier": "Amber", "volume": 7.7, "cii": 0.64, "cluster": 16}, {"lat": 13.02385, "lon": 77.58497, "station": "R.T. Nagar", "score": 0.0035, "tier": "Amber", "volume": 5.0, "cii": 0.684, "cluster": 56}, {"lat": 12.94059, "lon": 77.52465, "station": "Byatarayanapura", "score": 0.0035, "tier": "Amber", "volume": 2.0, "cii": 0.71, "cluster": 266}, {"lat": 12.93844, "lon": 77.57997, "station": "Basavanagudi", "score": 0.0034, "tier": "Amber", "volume": 5.8, "cii": 0.867, "cluster": 296}, {"lat": 13.09916, "lon": 77.57705, "station": "Yelahanka", "score": 0.0034, "tier": "Amber", "volume": 5.7, "cii": 0.65, "cluster": 165}, {"lat": 12.97173, "lon": 77.54684, "station": "Magadi Road", "score": 0.0034, "tier": "Amber", "volume": 4.4, "cii": 0.786, "cluster": 136}, {"lat": 13.05002, "lon": 77.59312, "station": "Hebbala", "score": 0.0034, "tier": "Amber", "volume": 8.5, "cii": 0.601, "cluster": 154}, {"lat": 13.07162, "lon": 77.59258, "station": "Kodigehalli", "score": 0.0034, "tier": "Amber", "volume": 3.8, "cii": 0.682, "cluster": 120}, {"lat": 13.09927, "lon": 77.59742, "station": "Yelahanka", "score": 0.0034, "tier": "Amber", "volume": 2.6, "cii": 0.635, "cluster": 230}, {"lat": 13.05389, "lon": 77.59275, "station": "Kodigehalli", "score": 0.0032, "tier": "Amber", "volume": 5.0, "cii": 0.606, "cluster": 39}, {"lat": 12.98178, "lon": 77.60436, "station": "Shivajinagar", "score": 0.0032, "tier": "Amber", "volume": 3.0, "cii": 0.825, "cluster": 235}, {"lat": 12.96428, "lon": 77.5425, "station": "Vijayanagara", "score": 0.0032, "tier": "Amber", "volume": 7.0, "cii": 0.6, "cluster": 262}, {"lat": 13.02122, "lon": 77.59258, "station": "R.T. Nagar", "score": 0.0031, "tier": "Amber", "volume": 7.4, "cii": 0.601, "cluster": 305}, {"lat": 12.95573, "lon": 77.5461, "station": "Byatarayanapura", "score": 0.0031, "tier": "Amber", "volume": 2.0, "cii": 0.877, "cluster": 188}, {"lat": 12.98774, "lon": 77.61811, "station": "Pulikeshinagar(F.Town)", "score": 0.0031, "tier": "Amber", "volume": 4.8, "cii": 0.601, "cluster": 159}, {"lat": 12.99263, "lon": 77.55815, "station": "Rajajinagar", "score": 0.0031, "tier": "Amber", "volume": 3.5, "cii": 0.816, "cluster": 307}, {"lat": 13.04584, "lon": 77.75033, "station": "K.R. Pura", "score": 0.003, "tier": "Amber", "volume": 2.5, "cii": 0.702, "cluster": 82}, {"lat": 12.93556, "lon": 77.61162, "station": "Adugodi", "score": 0.003, "tier": "Amber", "volume": 3.5, "cii": 0.794, "cluster": 299}, {"lat": 12.97222, "lon": 77.53782, "station": "Vijayanagara", "score": 0.003, "tier": "Amber", "volume": 7.4, "cii": 0.836, "cluster": 137}, {"lat": 13.09964, "lon": 77.58863, "station": "Yelahanka", "score": 0.0029, "tier": "Amber", "volume": 5.8, "cii": 0.604, "cluster": 186}, {"lat": 12.91229, "lon": 77.58573, "station": "J.P. Nagar", "score": 0.0029, "tier": "Amber", "volume": 1.9, "cii": 0.905, "cluster": 92}, {"lat": 12.96125, "lon": 77.5839, "station": "Halasuru Gate", "score": 0.0029, "tier": "Amber", "volume": 4.5, "cii": 0.847, "cluster": 292}, {"lat": 12.98715, "lon": 77.5803, "station": "High ground", "score": 0.0029, "tier": "Amber", "volume": 8.1, "cii": 0.908, "cluster": 207}]};
+    </script>
+    
+    <!-- Main JS Application Logic -->
+    <script>
+        let currentBand = "morning_peak";
+        let map;
+        let markersGroup;
+        let searchFilter = "";
+        
+        // Initialize Map
+        function initMap() {
+            // Centered on Bengaluru centre
+            map = L.map('map', {
+                zoomControl: false,
+                attributionControl: false
+            }).setView([12.9716, 77.5946], 12);
+            
+            // Add zoom control at top right
+            L.control.zoom({ position: 'topright' }).addTo(map);
+            
+            // CartoDB Dark Matter tile layer
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                maxZoom: 20
+            }).addTo(map);
+            
+            markersGroup = L.layerGroup().addTo(map);
+        }
+        
+        // Switch timeband and refresh dashboard
+        function switchTimeBand(band) {
+            currentBand = band;
+            
+            // Update buttons state
+            document.querySelectorAll('.timeband-btn').forEach(btn => {
+                if (btn.innerText.toLowerCase().replace(" ", "_") === band) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            
+            document.getElementById('search-input').value = "";
+            searchFilter = "";
+            
+            renderDashboard();
+        }
+        
+        // Pan/Zoom map to cluster and open popup
+        function focusHotspot(lat, lon, clusterId) {
+            map.setView([lat, lon], 14, { animate: true, duration: 1.0 });
+            markersGroup.eachLayer(layer => {
+                if (layer.options.clusterId === clusterId) {
+                    layer.openPopup();
+                }
+            });
+        }
+        
+        // Search handler
+        function handleSearch() {
+            searchFilter = document.getElementById('search-input').value.toLowerCase();
+            renderDashboard(false); // Render dashboard without resetting map zoom/bounds
+        }
+        
+        // Main rendering logic
+        function renderDashboard(updateMap = true) {
+            const points = HEATMAP_DATA[currentBand] || [];
+            
+            // Apply search filter
+            const filteredPoints = points.filter(p => 
+                p.station.toLowerCase().includes(searchFilter)
+            );
+            
+            // Calculate and display statistics
+            const activeCount = filteredPoints.length;
+            const maxVolume = activeCount > 0 ? Math.max(...filteredPoints.map(p => p.volume)) : 0.0;
+            const meanCii = activeCount > 0 ? (filteredPoints.reduce((acc, p) => acc + p.cii, 0) / activeCount) : 0.0;
+            const avgPriority = activeCount > 0 ? (filteredPoints.reduce((acc, p) => acc + p.score, 0) / activeCount) : 0.0;
+            
+            document.getElementById('stat-count').innerText = activeCount;
+            document.getElementById('stat-volume').innerText = maxVolume.toFixed(1);
+            document.getElementById('stat-cii').innerText = meanCii.toFixed(2);
+            document.getElementById('stat-priority').innerText = avgPriority.toFixed(3);
+            
+            // Render Sidebar List
+            const listContainer = document.getElementById('hotspot-list');
+            listContainer.innerHTML = '';
+            
+            filteredPoints.forEach(p => {
+                const item = document.createElement('div');
+                item.className = 'hotspot-item';
+                item.onclick = () => focusHotspot(p.lat, p.lon, p.cluster);
+                
+                item.innerHTML = `
+                    <div class="hotspot-item-info">
+                        <span class="hotspot-item-station">${p.station}</span>
+                        <span class="hotspot-item-details">Cluster #${p.cluster} | Vol: ${p.volume.toFixed(1)}/wk</span>
+                    </div>
+                    <div class="hotspot-item-badge ${p.tier}">${p.tier}</div>
+                `;
+                listContainer.appendChild(item);
+            });
+            
+            // Render Map Markers
+            if (updateMap) {
+                markersGroup.clearLayers();
+                
+                if (filteredPoints.length === 0) return;
+                
+                const bounds = [];
+                
+                filteredPoints.forEach(p => {
+                    const color = p.tier === 'Red' ? 'var(--accent-red)' : 'var(--accent-amber)';
+                    const shadowColor = p.tier === 'Red' ? 'var(--accent-red-glow)' : 'var(--accent-amber-glow)';
+                    
+                    // Sizing based on priority score
+                    const r = 8 + (p.score * 12); 
+                    
+                    const marker = L.circleMarker([p.lat, p.lon], {
+                        radius: r,
+                        color: color,
+                        fillColor: color,
+                        fillOpacity: 0.5,
+                        weight: 2,
+                        clusterId: p.cluster
+                    });
+                    
+                    // Create Popup HTML
+                    const popupHtml = `
+                        <div class="popup-header">
+                            <span class="popup-title">${p.station}</span>
+                            <span class="popup-badge" style="background: ${p.tier === 'Red' ? 'rgba(255, 59, 48, 0.2)' : 'rgba(255, 159, 10, 0.2)'}; color: ${p.tier === 'Red' ? '#ff6961' : '#ffd60a'}; border: 1px solid ${color};">
+                                ${p.tier} Tier
+                            </span>
+                        </div>
+                        <div class="popup-grid">
+                            <span class="popup-label">Cluster ID:</span>
+                            <span class="popup-value">#${p.cluster}</span>
+                            
+                            <span class="popup-label">Est. Weekly Violations:</span>
+                            <span class="popup-value">${p.volume.toFixed(1)}</span>
+                            
+                            <span class="popup-label">CII Score (Traffic Flow Impact):</span>
+                            <span class="popup-value">${p.cii.toFixed(3)}</span>
+                            
+                            <span class="popup-label" style="font-weight: 700;">Final Priority Score:</span>
+                            <span class="popup-value" style="color: ${color}; font-weight: 700;">${p.score.toFixed(4)}</span>
+                        </div>
+                        <button class="popup-dispatch-btn" onclick="alert('Patrol Unit dispatched to Cluster #${p.cluster} (${p.station}). Notification sent to terminal.')">
+                            Dispatch Patrol
+                        </button>
+                    `;
+                    
+                    marker.bindPopup(popupHtml, { maxWidth: 280 });
+                    markersGroup.addLayer(marker);
+                    bounds.push([p.lat, p.lon]);
+                });
+                
+                // Fit bounds to show all markers
+                if (bounds.length > 0) {
+                    map.fitBounds(bounds, { padding: [50, 50] });
+                }
+            }
+        }
+        
+        // Initial Startup
+        window.onload = () => {
+            initMap();
+            renderDashboard();
+        };
+    </script>
+</body>
+</html>

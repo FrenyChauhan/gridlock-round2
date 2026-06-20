@@ -1,0 +1,71 @@
+# Configuration file for Machine Learning Project
+data:
+  raw_dir: "data/raw"
+  processed_dir: "data/processed"
+  train_path: "data/processed/train.csv"
+  test_path: "data/processed/test.csv"
+  target_column: "target"
+  num_features: 10
+  
+  # Bengaluru Parking Violations Paths
+  raw_violation_path: "data/raw/dataset/jan to may police violation_anonymized791b166.csv"
+  cleaned_violation_path: "data/processed/cleaned_violations.csv"
+  featured_violation_path: "data/processed/featured_violations.csv"
+  clustered_violation_path: "data/processed/clustered_violations.csv"
+  cluster_registry_path: "data/processed/cluster_registry.csv"
+  kdist_plot_path: "outputs/plots/kdistance_plot.png"
+  hist_plot_path: "outputs/plots/cluster_size_histogram.png"
+  cluster_map_path: "outputs/plots/cluster_map.html"
+  hotspot_scores_path: "data/processed/hotspot_scores.csv"
+  hotspot_dist_plot_path: "outputs/plots/hotspot_score_dist.png"
+  top_hotspots_plot_path: "outputs/plots/top_hotspots_bar.png"
+
+clustering:
+  eps: 0.0005
+  min_samples: 50
+  min_cluster_size: 50
+
+hotspot_scoring:
+  min_cluster_size: 50
+  min_slice_count: 30
+  usable_bands: ["late_night", "mid_day", "morning_peak"]
+
+model:
+  type: "pytorch" # options: "pytorch", "scikit-learn"
+  pytorch:
+    input_dim: 10
+    hidden_dims: [64, 32]
+    output_dim: 1
+    dropout: 0.2
+  scikit_learn:
+    classifier: "random_forest" # options: "random_forest", "logistic_regression", "gradient_boosting"
+    n_estimators: 100
+    max_depth: 6
+
+training:
+  epochs: 15
+  batch_size: 32
+  learning_rate: 0.005
+  weight_decay: 0.00001
+  random_seed: 42
+  device: "cpu" # Options: "cpu", "cuda", "mps"
+
+logging:
+  log_interval: 5
+  model_dir: "models"
+  model_name: "best_model.pth"
+  sklearn_model_name: "model.pkl"
+
+forecasting:
+  weekly_aggregation_path: "data/processed/weekly_cluster_timeband.csv"
+  weekly_features_path: "data/processed/weekly_features.csv"
+  model_output_path: "data/processed/lightgbm_hotspot_forecast.txt"
+  report_output_path: "data/processed/validation_report.txt"
+  test_weeks: 6
+  min_weeks_for_model: 4
+  cii_scores_path: "data/processed/cii_scores.csv"
+  weekly_forecast_path: "data/processed/weekly_forecast.csv"
+  final_priority_table_path: "data/processed/final_priority_table.csv"
+  shrinkage_k: 30
+  heatmap_data_path: "data/processed/heatmap_data.json"
+
