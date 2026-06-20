@@ -211,8 +211,8 @@ This section explains the exact mathematical formulations and feature engineerin
 
 ### B. Feature Engineering (`feature_engineering.py`)
 - **Cyclical Time Encoding**: To preserve chronological proximity (e.g., 23:00 is close to 00:00, Sunday is close to Monday), hours, days of the week, and months are encoded as cyclical sine and cosine functions:
-  $$\text{hour\_sin} = \sin\left(\frac{2\pi \times \text{hour}}{24}\right), \quad \text{hour\_cos} = \cos\left(\frac{2\pi \times \text{hour}}{24}\right)$$
-  $$\text{dow\_sin} = \sin\left(\frac{2\pi \times \text{day\_of\_week}}{7}\right), \quad \text{dow\_cos} = \cos\left(\frac{2\pi \times \text{day\_of\_week}}{7}\right)$$
+  $$\text{hour}_{\text{sin}} = \sin\left(\frac{2\pi \times \text{hour}}{24}\right), \quad \text{hour}_{\text{cos}} = \cos\left(\frac{2\pi \times \text{hour}}{24}\right)$$
+  $$\text{dow}_{\text{sin}} = \sin\left(\frac{2\pi \times \text{day of week}}{7}\right), \quad \text{dow}_{\text{cos}} = \cos\left(\frac{2\pi \times \text{day of week}}{7}\right)$$
 - **Distance from City Center**: Measures the Euclidean distance of each violation from the center coordinates of Bengaluru ($12.9716, 77.5946$), which is then normalized using a `MinMaxScaler`.
 - **Cyclical Shift Time-Bands**: Mapped from the local hour:
   - `late_night` (23:00 to 05:00)
@@ -231,12 +231,12 @@ Where:
 - **Time Demand**: Mapped demand multiplier corresponding to the shift (e.g. `morning_peak = 1.0`, `late_night = 0.2`).
 
 ### D. Hotspot Score Prediction & Bayesian Shrinkage (`final_priority.py`)
-1. **Forecast Volume**: The production pipeline uses the expanding historical average of the series' weekly counts to forecast the next week's predicted count $V_{pred}$.
-2. **Empirical Severity Shrinkage**: Low-volume clusters are regularized to prevent noisy averages from distorting hotspot priority. Each cluster's mean severity index $S_{raw}$ is smoothed toward the global average severity $S_{global} = 0.0128$ using $K = 30$:
-   $$S_{shrunk} = \frac{N \times S_{raw} + 30 \times 0.0128}{N + 30}$$
+1. **Forecast Volume**: The production pipeline uses the expanding historical average of the series' weekly counts to forecast the next week's predicted count $V_{\text{pred}}$.
+2. **Empirical Severity Shrinkage**: Low-volume clusters are regularized to prevent noisy averages from distorting hotspot priority. Each cluster's mean severity index $S_{\text{raw}}$ is smoothed toward the global average severity $S_{\text{global}} = 0.0128$ using $K = 30$:
+   $$S_{\text{shrunk}} = \frac{N \times S_{\text{raw}} + 30 \times 0.0128}{N + 30}$$
    where $N$ is the total historical violations observed in that zone.
 3. **Hotspot Score**: The raw index is computed as:
-   $$\text{Hotspot Score Raw} = V_{pred} \times S_{shrunk}$$
+   $$\text{Hotspot Score}_{\text{raw}} = V_{\text{pred}} \times S_{\text{shrunk}}$$
    This raw score is normalized globally to range from $0.0$ to $1.0$ across all 939 zones, yielding the final `hotspot_score`.
 4. **Final Prioritization**: The final score blends predicted volume/severity (Hotspot) with road blockage vulnerability (CII):
    $$\text{Final Priority Score} = \text{Hotspot Score} \times \text{CII Score}$$
