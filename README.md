@@ -14,7 +14,42 @@ Traffic congestion in Bengaluru is heavily amplified by unauthorized and hazardo
 
 ---
 
-## 2. Core Pipeline Architecture
+## 2. The Approach & Implementation Journey
+
+Here is the step-by-step methodology of what was done from scratch to design, train, regularize, and build this optimization system:
+
+### Step 1: Exploratory Data Analysis & Profiling
+We initiated the project by profiling the raw police records dataset containing ~248k rows. We analyzed the missing rate of each attribute, defined coordinate bounding boxes to remove geographical noise outside the Bengaluru metropolitan area, and profiled the hourly, weekly, and violation type distributions. A 50,000-record sample was extracted to compile an interactive HTML data-profiling report to explore structural characteristics of the dataset.
+
+### Step 2: Data Cleaning & Feature Engineering
+We standardized the geographical variables (mapping lat/lon ranges, computing distance from the city center), engineered cyclic time variables (converting hours, days of the week, and months to sine/cosine coordinates to capture cyclical patterns), and structured shift time-bands (`morning_peak`, `mid_day`, `late_night`). We also calculated base parameters like junction multipliers and vehicle blockage weights based on vehicle weight categories.
+
+### Step 3: Density-Based Spatial Clustering
+We formulated a spatial clustering pipeline using the **DBSCAN** algorithm to group individual violations into physical hotspots:
+- Used a **K-Distance elbow plot** (via BallTree NearestNeighbors) to select the optimal spatial resolution.
+- Settled on `eps = 0.0005` (~55m radius) and `min_samples = 50` to isolate high-density hotspots while ignoring scattered outliers.
+- Grouped **86.57% of the violations into 317 distinct geographical clusters** and created a unified **Cluster Registry** compiling centroids, radii, dominant stations, and base severity.
+
+### Step 4: Time-Series Formulation & Weekly Aggregation
+To forecast hotspots over time, we reformulated the static historical data as a time-series problem. We aggregated individual violations into a **weekly time-series grain** grouped by `(cluster_id, time_band, week)`. This preserves density patterns while providing a uniform, sequential frequency index for modeling.
+
+### Step 5: Forecasting Model Exploration & Validation
+To establish a production-grade forecast:
+- We built a strict **chronological train/test split** (split at week `2024-02-26` with 6 held-out test weeks) to prevent future data leaking into the training phase.
+- We constructed rolling lag features (lags 1-3, 3-week rolling means/stds, trend direction, expanding averages) and trained a **LightGBM Regressor** to predict the next week's violation volume.
+- We compared the LightGBM model against naive and historical baseline forecasts. The evaluation revealed that the **Historical Mean Model outperformed LightGBM (MAE 13.09 vs. 15.02)**. Because traffic violations are highly stationary and our historical timeline is 23 weeks, the expanding mean acts as a strong regularizer, making it the selected production forecasting model.
+
+### Step 6: Mathematical Optimization & Regularization
+We refined the scoring formulas to address structural limitations:
+- **Decoupled Double Counting**: Removed parameters like `time_demand` and `junction_mult` from the hotspot score and isolated them strictly inside the CII (Congestion Impact Index) index so the hotspot score measures only pure volume × severity.
+- **Empirical Severity Shrinkage**: Addressed small-sample-size noise (where tiny clusters with 1-3 total violations outranked major zones because of a single multi-type violation) by implementing **Bayesian Empirical Shrinkage ($K=30$)** to blend a cluster's severity toward the global mean severity ($0.0128$).
+
+### Step 7: Geo-JSON Pipeline & UI Integration
+We joined the forecasted volume, adjusted severity, and CII to calculate the final priority scores. Slices were tiered into Red (top 20%), Amber (next 30%), and Green (bottom 50%) zones. We filtered out the Green tier to avoid map clutter and exported the priority zones as a structured JSON payload. We then developed a self-contained Leaflet.js dashboard (`index.html`) using a dark cyber-grid theme with real-time statistics, search filters, and dispatch simulation controls.
+
+---
+
+## 3. Core Pipeline Architecture
 
 The project is structured as a modular pipeline, with each step separated into individual scripts under `src/`:
 
@@ -44,7 +79,7 @@ graph TD
 
 ---
 
-## 3. Key Methodological Decisions & Modeling Results
+## 4. Key Methodological Decisions & Modeling Results
 
 ### A. Production Forecasting Model Selection
 During validation using a chronological train/test split (split at week `2024-02-26` with 4,677 train rows / 2,282 test rows), we evaluated a LightGBM regressor with rolling lag features against simple baselines:
@@ -72,7 +107,7 @@ We decoupled variables to ensure the two-stage prioritization model doesn't coll
 
 ---
 
-## 4. Folder Structure
+## 5. Folder Structure
 
 ```text
 .
@@ -115,7 +150,7 @@ We decoupled variables to ensure the two-stage prioritization model doesn't coll
 
 ---
 
-## 5. How to Run the Pipeline
+## 6. How to Run the Pipeline
 
 To run the pipeline on the full dataset and generate the outputs, execute the following commands in order from the repository root:
 
@@ -141,7 +176,7 @@ python -m src.generate_ui
 
 ---
 
-## 6. Accessing the Interactive Dashboard
+## 7. Accessing the Interactive Dashboard
 
 Once the pipeline completes, you can open and interact with the patrol dispatcher dashboard (`index.html`) in your browser.
 
