@@ -211,6 +211,28 @@ Rather than applying an arbitrary grid to the city, we utilized DBSCAN. Violatio
 
 ---
 
+## 📊 Visual Analytics
+
+> The following charts are embedded in the live dashboard.
+> Screenshots available at the live demo link above.
+
+![System Metrics](docs/metrics.png)
+
+**Model validation** — Historical Mean selected after rigorous 
+chronological split. All four models compared honestly.
+
+![Model Validation](docs/mae_comparison.png)
+
+**Temporal decay** — Recent weeks weighted up to 5x more than 
+5-month-old data (decay_rate=0.85).
+
+![Temporal Decay Weighting](docs/sample_weight.png)
+
+**Hotspot detection** — 96–97% of genuine recurring hotspots 
+identified. 13.4% noise correctly excluded as isolated incidents.
+
+---
+
 ## 🖥 Features
 
 ### 🎛 Control Room Dashboard
@@ -236,6 +258,8 @@ Rather than applying an arbitrary grid to the city, we utilized DBSCAN. Violatio
 ---
 
 ## 🔄 Feedback & Retraining Loop
+
+![Feedback Loop](docs/feedback_loop.png)
 
 ```text
 [ Patrol Team Dispatched ]
@@ -308,15 +332,15 @@ Rather than applying an arbitrary grid to the city, we utilized DBSCAN. Violatio
 
 ## 🎬 Demo Access
 
-**🖥 Live Demo:** [Live deployment placeholder URL]  
-**🎥 Video Demo:** [Video recording placeholder URL]
+**🖥 Live Demo:** https://gridlock-round2-1-6q3s.onrender.com  
+**🎥 Video Demo:** [TO ADD]
 
 ### 📸 Screenshots
 *(Visuals to be populated post-deployment)*
-- `[Screenshot 1 Placeholder: Live Command Map with Radar Sweep, CSS Glows]`
-- `[Screenshot 2 Placeholder: Zone Intelligence Table & Notifications]`
-- `[Screenshot 3 Placeholder: Team Management Modal]`
-- `[Screenshot 4 Placeholder: Officer Mobile Web-App View]`
+![Architecture](docs/architecture_flow.png)
+![Live Command Map](docs/command_map.png)
+![Zone Intelligence](docs/zone_intelligence.png)
+![Officer View](docs/officer_view.png)
 
 ### Control Room Credentials
 | Email | Password | Region |
@@ -349,7 +373,7 @@ Rather than applying an arbitrary grid to the city, we utilized DBSCAN. Violatio
 
 1. **Clone the repository:**
    ```bash
-   git clone [GitHub repo placeholder URL]
+   git clone https://github.com/FrenyChauhan/gridlock-round2.git
    cd gridlock-round2
    ```
 
@@ -373,5 +397,11 @@ Rather than applying an arbitrary grid to the city, we utilized DBSCAN. Violatio
 ---
 
 ## 👥 Team
-- `[Team Member Name]`
-- `[Team Member Name]`
+
+<div align="center">
+
+### Made with ♥ by **Team Shadow**
+
+*Bengaluru Traffic Intelligence · HackerEarth Gridlock 2.0*
+
+</div>
