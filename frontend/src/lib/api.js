@@ -20,8 +20,10 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      console.warn("401 Unauthorized detected, but avoiding hard redirect to prevent loop.");
-      // window.location.href = '/login';
+      console.warn("401 Unauthorized detected. Clearing token and redirecting.");
+      localStorage.removeItem('gridlock_token');
+      localStorage.removeItem('gridlock_role');
+      window.location.href = '/login';
     }
     return Promise.reject(error);
   }
