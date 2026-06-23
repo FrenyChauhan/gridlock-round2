@@ -337,9 +337,15 @@ identified. 13.4% noise correctly excluded as isolated incidents.
 
 ### 📸 Screenshots
 *(Visuals to be populated post-deployment)*
-![Architecture](docs/architecture_flow.png)
+
+![Architecture Flow](docs/architecture_flow.png)
+
 ![Live Command Map](docs/command_map.png)
+
+![Team Management](docs/teams_page.png)
+
 ![Zone Intelligence](docs/zone_intelligence.png)
+
 ![Officer View](docs/officer_view.png)
 
 ### Control Room Credentials
