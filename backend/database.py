@@ -20,7 +20,14 @@ from typing import Optional
 import pandas as pd
 from pymongo import MongoClient
 
-MONGODB_URI = "mongodb+srv://hackbaroda:Ic1Rg4OGmMkHJEsu@hackbaroda.y4bpo48.mongodb.net/?appName=HackBaroda"
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+MONGODB_URI = os.environ.get("MONGODB_URI")
+if not MONGODB_URI:
+    raise ValueError("CRITICAL: MONGODB_URI is missing from environment variables!")
+
 DB_NAME = "gridlock"
 
 print("[database] Connecting to MongoDB Atlas...")
