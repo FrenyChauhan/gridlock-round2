@@ -18,3 +18,6 @@ holidays
 pymongo
 dnspython
 python-dotenv
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt
