@@ -36,10 +36,12 @@ export default function DispatchModal({ initialZoneId = null, onClose }) {
         await assignments.createAssignment({ zone_id: selectedZone, team_id });
       }
       toast.success(`Dispatch sequence confirmed! ${selectedTeams.length} Team(s) En Route.`, { icon: '🚀', style: { background: '#1c2538', color: '#fff' } });
-      queryClient.invalidateQueries(['unassignedZones']);
-      queryClient.invalidateQueries(['availableTeams']);
-      queryClient.invalidateQueries(['dashboardStats']);
-      queryClient.invalidateQueries(['zones']);
+      queryClient.invalidateQueries({ queryKey: ['unassignedZones'] });
+      queryClient.invalidateQueries({ queryKey: ['availableTeams'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+      queryClient.invalidateQueries({ queryKey: ['zones'] });
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
+      queryClient.invalidateQueries({ queryKey: ['activeAssignments'] });
       onClose();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Failed to dispatch teams');

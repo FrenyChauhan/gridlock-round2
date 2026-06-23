@@ -12,7 +12,7 @@ export default function TeamGrid({ teamData, refetch }) {
 
   const handleUpdateStatus = async (id, status) => {
     try {
-      await teams.updateTeamStatus(id, { current_status: status });
+      await teams.updateTeamStatus(id, { status: status });
       refetch();
     } catch (err) {
       console.error(err);

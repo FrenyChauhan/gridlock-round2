@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 export default function TeamDetailCard({ team, onUpdate }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const [newStatus, setNewStatus] = useState(team.current_status || 'available');
+  const [newStatus, setNewStatus] = useState(team.status || 'available');
 
   const handleUpdate = (e) => {
     e.stopPropagation();
@@ -23,8 +23,8 @@ export default function TeamDetailCard({ team, onUpdate }) {
     return map[s] || { label: s?.toUpperCase(), cls: 'tc-stat-offduty' };
   };
 
-  const stat = getStatusDisplay(team.current_status);
-  const isBusy = team.current_status === 'assigned' || team.current_status === 'enroute' || team.current_status === 'on_site';
+  const stat = getStatusDisplay(team.status);
+  const isBusy = team.status === 'assigned' || team.status === 'enroute' || team.status === 'on_site';
 
   // Mock assignment history
   const history = [
@@ -52,7 +52,7 @@ export default function TeamDetailCard({ team, onUpdate }) {
 
       {isBusy && (
         <div className="tc-assign">
-          <span className="tc-zone">● {team.current_assignment_id || 'Z-1234'}</span>
+          <span className="tc-zone">● {team.current_zone_id || 'Z-1234'}</span>
           <span className="tc-eta">
             ~{team.expected_free_at ? new Date(team.expected_free_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '22 min remaining'}
           </span>
