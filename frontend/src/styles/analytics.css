@@ -1,0 +1,149 @@
+.analytics-page {
+  padding: 24px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.ap-header {
+  margin-bottom: 24px;
+}
+
+.ap-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 24px;
+  color: var(--text-bright);
+  letter-spacing: -0.02em;
+}
+
+.ap-subtitle {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+.ap-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 20px;
+}
+
+.ap-card {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--r-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.ap-card.col-span-8 { grid-column: span 8; }
+.ap-card.col-span-4 { grid-column: span 4; }
+.ap-card.col-span-12 { grid-column: span 12; }
+
+.ap-card-title {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-mid);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ap-chart-wrapper {
+  flex: 1;
+  min-height: 250px;
+  width: 100%;
+}
+
+/* Custom Tooltip Styling for Recharts */
+.ap-tooltip {
+  background: rgba(8, 13, 26, 0.95);
+  border: 1px solid var(--panel-border-bright);
+  box-shadow: var(--shadow-glow-blue);
+  border-radius: var(--r-md);
+  padding: 12px;
+  backdrop-filter: blur(8px);
+}
+
+.ap-tooltip-label {
+  font-family: var(--font-display);
+  font-size: 14px;
+  color: var(--text-bright);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.ap-tooltip-item {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+
+.ap-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.ap-metric-box {
+  background: var(--panel-raised);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--r-md);
+  padding: 16px;
+  text-align: center;
+}
+
+.ap-mb-val {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--scan-blue);
+}
+
+.ap-mb-lbl {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+.ap-squad-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.ap-squad-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--panel-raised);
+  padding: 8px 12px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--panel-border);
+}
+
+.ap-squad-size {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-bright);
+}
+
+.ap-squad-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--scan-blue);
+  font-weight: 600;
+}

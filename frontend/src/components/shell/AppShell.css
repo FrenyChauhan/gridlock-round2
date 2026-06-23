@@ -1,0 +1,236 @@
+.app-shell {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  background-color: var(--void);
+}
+
+.top-strip {
+  position: fixed;
+  top: 0;
+  left: 64px; /* offset by sidenav width */
+  right: 0;
+  height: 48px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--panel-border);
+  padding: 0 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 3000;
+}
+
+.side-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 64px;
+  height: 100vh;
+  background: var(--panel);
+  border-right: 1px solid var(--panel-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 3100;
+  padding-top: 12px;
+}
+
+.main-content {
+  margin-top: 48px;
+  margin-left: 64px;
+  width: calc(100vw - 64px);
+  height: calc(100vh - 48px);
+  overflow-y: auto;
+  position: relative;
+}
+
+/* SideNav details */
+.sn-logo {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--scan-blue);
+  cursor: pointer;
+  margin-bottom: 32px;
+}
+
+.sn-item {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all var(--t-fast);
+  border-left: 3px solid transparent;
+  margin-bottom: 8px;
+  position: relative;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.sn-item:hover {
+  color: var(--text-bright);
+}
+
+.sn-item.active {
+  color: var(--scan-blue);
+  border-left-color: var(--scan-blue);
+  background: var(--scan-blue-dim);
+}
+
+.sn-separator {
+  width: 32px;
+  height: 1px;
+  background: var(--panel-border);
+  margin: 12px 0 20px 0;
+}
+
+.sn-bottom {
+  margin-top: auto;
+  margin-bottom: 16px;
+}
+
+/* Tooltip */
+.sn-item[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 60px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--panel-raised);
+  color: var(--text-bright);
+  padding: 4px 10px;
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-family: var(--font-body);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--t-fast);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow-panel);
+  z-index: 1000;
+}
+
+.sn-item:hover[data-tooltip]::after {
+  opacity: 1;
+}
+
+/* TopStrip details */
+.ts-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ts-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text-bright);
+}
+
+.ts-breadcrumb {
+  color: var(--text-dim);
+}
+
+.ts-region {
+  background: var(--scan-blue-dim);
+  color: var(--scan-blue);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 12px;
+}
+
+.ts-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+}
+
+.ts-clock {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 20px;
+  color: var(--text-bright);
+  margin-bottom: 2px;
+}
+
+.ts-date {
+  font-family: var(--font-body);
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.ts-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.ts-shift {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-bright);
+}
+
+.ts-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--safe-green);
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(0,200,83,0.5);
+}
+
+.ts-bell {
+  position: relative;
+  color: var(--text-mid);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  padding: 4px;
+}
+
+.ts-bell:hover {
+  color: var(--text-bright);
+}
+
+.ts-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  background: var(--heat-red);
+  color: white;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 5px;
+  border-radius: 10px;
+  line-height: 1;
+}
+
+.ts-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--scan-blue-dim);
+  color: var(--scan-blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+}

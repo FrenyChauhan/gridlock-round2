@@ -28,7 +28,7 @@ clustering:
 hotspot_scoring:
   min_cluster_size: 50
   min_slice_count: 30
-  usable_bands: ["late_night", "mid_day", "morning_peak"]
+  usable_bands: ["early_morning", "dead_zone", "morning_transition"]
 
 model:
   type: "pytorch" # options: "pytorch", "scikit-learn"

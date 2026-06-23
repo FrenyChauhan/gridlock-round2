@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  backend:
+    build: ./backend
+    ports: ["8000:8000"]
+    volumes: ["./data:/app/data"]
+    env_file: ./backend/.env
+    
+  frontend:
+    build: ./frontend
+    ports: ["3000:80"]
+    depends_on: [backend]
+    
+  pipeline:
+    build: .
+    command: python run_full_pipeline.py
+    volumes: ["./data:/app/data"]
+    profiles: ["pipeline"]

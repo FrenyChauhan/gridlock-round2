@@ -26,11 +26,11 @@ from src.utils import load_config, setup_logging
 
 # Time demand multiplier — used in hotspot scoring formula
 TIME_DEMAND_MAP = {
-    "morning_peak": 1.0,
-    "evening"     : 0.8,
-    "night"       : 0.5,
-    "mid_day"     : 0.3,
-    "late_night"  : 0.2,
+    "morning_transition": 1.0,
+    "evening"           : 0.8,
+    "evening_night"     : 0.6,
+    "early_morning"     : 0.3,
+    "dead_zone"         : 0.2,
 }
 
 VEHICLE_WEIGHT_MAP = {
@@ -67,23 +67,31 @@ KEEP_COLS = [
     "created_datetime_ist", "hour", "day_of_week", "month", "date",
     "time_band", "time_demand_multiplier", "day_type",
     # Validation
-    "validation_status",
+    "validation_status", "sample_weight",
 ]
 
 
 def assign_time_band(hour):
-    if hour >= 23 or hour <= 5:      # 23, 0, 1, 2, 3, 4, 5
-        return "late_night"
-    elif 6 <= hour <= 9:
-        return "morning_peak"
+    """
+    Map IST hour to traffic time band.
+    early_morning    : 0–6   (low activity, late night / pre-dawn)
+    morning_transition: 7–9  (commute ramp-up)
+    dead_zone        : 10–15 (mid-day lull)
+    evening          : 16–18 (peak evening traffic)
+    evening_night    : 19–23 (post-peak winding down)
+    """
+    if 0 <= hour <= 6:
+        return "early_morning"
+    elif 7 <= hour <= 9:
+        return "morning_transition"
     elif 10 <= hour <= 15:
-        return "mid_day"
-    elif 16 <= hour <= 19:
+        return "dead_zone"
+    elif 16 <= hour <= 18:
         return "evening"
-    elif 20 <= hour <= 22:           # explicitly define night
-        return "night"
+    elif 19 <= hour <= 23:
+        return "evening_night"
     else:
-        return "late_night"          # fallback
+        return "early_morning"        # fallback (should never trigger)
 
 
 def compute_severity(vtype_str):
@@ -149,7 +157,7 @@ def clean_data(raw_path: str, output_path: str, logger=None):
         log(f"Dropping fully-null columns: {fully_null}")
         df.drop(columns=fully_null, inplace=True)
 
-    # 2. Filter validation_status
+    # 2. Filter validation_status — drop only 'rejected'; assign sample_weight
     before = len(df)
     df = df[
         df["validation_status"].isna() |
@@ -157,7 +165,20 @@ def clean_data(raw_path: str, output_path: str, logger=None):
     ].copy()
     after = len(df)
     log(f"Validation filter: {before} -> {after} rows "
-        f"(removed {before - after} rejected/duplicate/processing rows)")
+        f"(removed {before - after} rejected rows)")
+
+    # Assign sample_weight based on validation_status reliability
+    def assign_sample_weight(status):
+        if pd.isna(status):
+            return 0.7   # NaN treated as implicitly approved but lower confidence
+        elif status == "approved":
+            return 1.0   # highest confidence
+        elif status == "created1":
+            return 0.8   # submitted but not fully validated
+        return 0.7       # fallback (should not occur after filter above)
+
+    df["sample_weight"] = df["validation_status"].apply(assign_sample_weight)
+    log(f"Sample weight distribution:\n{df['sample_weight'].value_counts().to_string()}")
 
     # 3. Datetime processing (UTC -> IST)
     log("Converting created_datetime UTC -> IST...")

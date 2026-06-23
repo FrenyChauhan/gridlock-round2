@@ -33,14 +33,17 @@ FEATURE_GROUPS = {
     "Geography (features)" : ["lat_norm", "lon_norm", "dist_from_centre", "dist_from_centre_norm"],
     "Temporal (raw)"       : ["hour", "day_of_week", "month", "date", "created_datetime_ist"],
     "Temporal (features)"  : ["hour_sin", "hour_cos", "dow_sin", "dow_cos",
-                               "month_sin", "month_cos", "is_weekend", "is_morning_peak"],
+                               "month_sin", "month_cos", "is_weekend", "is_morning_peak",
+                               "is_early_morning", "is_month_end"],
     "Time band"            : ["time_band", "time_band_enc", "day_type", "day_type_enc",
                                "time_demand_multiplier"],
     "Violation"            : ["violation_type", "offence_code", "severity_score",
                                "violation_count_in_record", "combined_severity",
-                               "combined_severity_norm"],
+                               "combined_severity_norm",
+                               "violation_type_count", "primary_violation",
+                               "primary_violation_severity"],
     "Vehicle"              : ["vehicle_type", "vehicle_weight", "vehicle_blockage_norm",
-                               "blockage_category", "blockage_cat_enc"],
+                               "blockage_category", "blockage_cat_enc", "vehicle_category"],
     "Junction"             : ["junction_name", "is_junction", "junction_multiplier",
                                "junction_proxy", "btp_code"],
     "Police station"       : ["police_station", "police_station_enc"],
@@ -77,6 +80,96 @@ def extract_btp_code(jname):
         except:
             return None
     return None
+
+
+# ─────────────────────────────────────────────
+# NEW HELPER MAPS & FUNCTIONS (Section H features)
+# ─────────────────────────────────────────────
+
+PRIMARY_VIOLATION_SEVERITY_MAP = {
+    "PARKING IN A MAIN ROAD": 1.0,
+    "WRONG PARKING"         : 0.7,
+    "NO PARKING"            : 0.6,
+    "PARKING ON FOOTPATH"   : 0.5,
+}
+
+VEHICLE_CATEGORY_MAP = {
+    # heavy
+    "PRIVATE BUS"           : "heavy",
+    "BUS (BMTC/KSRTC)"      : "heavy",
+    "HGV"                   : "heavy",
+    "LORRY/GOODS VEHICLE"   : "heavy",
+    "TEMPO"                 : "heavy",
+    # medium
+    "CAR"                   : "medium",
+    "MAXI-CAB"              : "medium",
+    "LGV"                   : "medium",
+    "VAN"                   : "medium",
+    "GOODS AUTO"            : "medium",
+    "JEEP"                  : "medium",
+    # light
+    "SCOOTER"               : "light",
+    "MOTOR CYCLE"           : "light",
+    "MOPED"                 : "light",
+    "PASSENGER AUTO"        : "light",
+}
+
+
+def parse_offence_codes(offence_str):
+    """
+    Parse the offence_code JSON-like array string and return a list of
+    individual violation strings.
+    Examples:
+      '["WRONG PARKING"]'        -> ["WRONG PARKING"]
+      '["NO PARKING","FOOTPATH"]' -> ["NO PARKING", "FOOTPATH"]
+      'NO PARKING'               -> ["NO PARKING"]   (plain string fallback)
+    """
+    import ast, json
+    if pd.isna(offence_str):
+        return []
+    s = str(offence_str).strip()
+    # Try JSON / Python literal first
+    if s.startswith("["):
+        try:
+            parsed = json.loads(s)
+            return [str(v).strip() for v in parsed if v]
+        except (json.JSONDecodeError, ValueError):
+            pass
+        try:
+            parsed = ast.literal_eval(s)
+            return [str(v).strip() for v in parsed if v]
+        except Exception:
+            pass
+    # Plain comma-separated fallback
+    return [v.strip() for v in s.split(",") if v.strip()]
+
+
+def get_violation_type_count(offence_str):
+    """Number of distinct violations in the offence_code field."""
+    codes = parse_offence_codes(offence_str)
+    return max(1, len(codes))
+
+
+def get_primary_violation(offence_str):
+    """First violation string from the offence_code field."""
+    codes = parse_offence_codes(offence_str)
+    return codes[0].upper() if codes else "UNKNOWN"
+
+
+def get_primary_violation_severity(offence_str):
+    """Severity score for the primary (first) violation."""
+    primary = get_primary_violation(offence_str)
+    for key, score in PRIMARY_VIOLATION_SEVERITY_MAP.items():
+        if key in primary:
+            return score
+    return 0.4   # default
+
+
+def get_vehicle_category(vtype):
+    """Map vehicle_type to heavy / medium / light."""
+    if pd.isna(vtype):
+        return "medium"   # default
+    return VEHICLE_CATEGORY_MAP.get(str(vtype).strip().upper(), "medium")
 
 
 def run_feature_engineering(input_path: str, output_path: str, logger=None):
@@ -116,8 +209,8 @@ def run_feature_engineering(input_path: str, output_path: str, logger=None):
     df["dow_cos"] = np.cos(2 * np.pi * df["day_of_week"] / 7)
     df["month_sin"] = np.sin(2 * np.pi * df["month"] / 12)
     df["month_cos"] = np.cos(2 * np.pi * df["month"] / 12)
-    df["is_weekend"] = (df["day_type"] == "weekend").astype(int)
-    df["is_morning_peak"] = (df["time_band"] == "morning_peak").astype(int)
+    df["is_weekend"] = df["day_of_week"].isin([5, 6]).astype(int)
+    df["is_morning_peak"] = (df["time_band"] == "morning_transition").astype(int)
 
     # ═══════════════════════════════════════════════════════════════
     # B. VIOLATION SEVERITY — NORMALISE & EXTEND
@@ -194,7 +287,41 @@ def run_feature_engineering(input_path: str, output_path: str, logger=None):
     df["blockage_cat_enc"] = le.fit_transform(df["blockage_category"])
 
     # ═══════════════════════════════════════════════════════════════
-    # H. FILTER COLUMNS & EXPORT
+    # H. NEW EXTENDED FEATURES
+    # ═══════════════════════════════════════════════════════════════
+    log("\n[H] Building new extended features...")
+
+    # H1. is_early_morning — binary flag for early_morning time band
+    df["is_early_morning"] = (df["time_band"] == "early_morning").astype(int)
+
+    # H2. is_weekend — binary flag (Saturday=5, Sunday=6)
+    #     Already computed in section A from day_of_week; kept consistent.
+
+    # H3. is_month_end — binary flag, day of month >= 25
+    df["is_month_end"] = (
+        df["created_datetime_ist"].dt.day >= 25
+    ).astype(int)
+
+    # H4. violation_type_count — number of violations in offence_code
+    df["violation_type_count"] = df["offence_code"].apply(get_violation_type_count)
+
+    # H5. primary_violation — first violation string from offence_code
+    df["primary_violation"] = df["offence_code"].apply(get_primary_violation)
+
+    # H6. primary_violation_severity — severity score for primary violation
+    df["primary_violation_severity"] = df["offence_code"].apply(get_primary_violation_severity)
+
+    # H7. vehicle_category — heavy / medium / light from vehicle_type
+    df["vehicle_category"] = df["vehicle_type"].apply(get_vehicle_category)
+
+    log(f"  is_early_morning counts   : {df['is_early_morning'].sum():,}")
+    log(f"  is_month_end counts       : {df['is_month_end'].sum():,}")
+    log(f"  violation_type_count dist :\n{df['violation_type_count'].value_counts().head().to_string()}")
+    log(f"  primary_violation top-5   :\n{df['primary_violation'].value_counts().head().to_string()}")
+    log(f"  vehicle_category dist     :\n{df['vehicle_category'].value_counts().to_string()}")
+
+    # ═══════════════════════════════════════════════════════════════
+    # I. FILTER COLUMNS & EXPORT
     # ═══════════════════════════════════════════════════════════════
     all_cols = [col for cols in FEATURE_GROUPS.values() for col in cols]
     df_featured = df[all_cols].copy()
