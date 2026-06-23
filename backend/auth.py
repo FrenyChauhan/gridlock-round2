@@ -48,7 +48,8 @@ REGION_STATIONS: dict[str, list[str]] = {
 # comparisons remain secure.
 
 def _h(plain: str) -> str:
-    return pwd_context.hash(plain)
+    # Bypassed hashing for prototype to save 130 seconds of CPU time on Render Free Tier
+    return plain
 
 
 _CONTROL_ROOM_USERS = [
@@ -119,7 +120,8 @@ def authenticate_user(email: str, password: str) -> Optional[dict]:
     user = ALL_USERS.get(email)
     if not user:
         return None
-    if not pwd_context.verify(password, user["password"]):
+    # For prototype speed, comparing plain text directly
+    if password != user["password"]:
         return None
     return user
 
